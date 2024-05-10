@@ -1,0 +1,16 @@
+name: run docker
+
+on:
+  repository_dispatch:
+    types:
+      - webhook
+
+jobs:
+
+  docker:
+    name: run dockers
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - run: docker run -e TZ=Asia/Shanghai dlld0319/jobs:latest
