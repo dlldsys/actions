@@ -19,7 +19,7 @@
 		},
 		methods: {
 			async load() {
-				const result=await this.$http.post('https://sqlite001.ld122481669.workers.dev/', `{
+				const result=await this.$http.post('https://sql.dlld0319.asia/', `{
 				     "sql": "select * from db_content ;"
 				}`)
 				this.list = result;
