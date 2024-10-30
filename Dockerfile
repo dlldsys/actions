@@ -1,4 +1,4 @@
-FROM node:14-alpine3.16
+FROM node:14-alpine3.17
 #FROM node:14
 # Set the working directory.
 RUN mkdir /app
