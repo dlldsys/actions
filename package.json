@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "dayjs": "^1.11.8",
+    "lodash": "^4.17.21",
+    "node-xlsx": "^0.21.2",
+    "xlsx": "^0.18.5"
+  }
+}
