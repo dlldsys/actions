@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: |
            docker build -t image_name .
-           docker save idoctorapi:latest -o image_name.tar
+           docker save image_name -o image_name.tar
       
       - name: Upload Docker image tar as artifact
         uses: actions/upload-artifact@v4
