@@ -15,6 +15,7 @@ jobs:
            docker build -t image_name .
            docker save image_name -o image_name.tar
            ls
+           cp image_name.tar ./images/
       
       - name: Upload Docker image tar as artifact
         uses: actions/upload-artifact@v4
