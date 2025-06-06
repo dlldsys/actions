@@ -141,11 +141,14 @@ jobs:
           cd ~
       - name: devsiedcar
         run: |
+          cd poe
           docker run -d \
           --name dev-sidecar-nginx \
-          -p 80:80 \
+          -p 443:443 \
           -v ~/deploy/ds-nginx/ssl:/app/ssl/ \
           -e TZ=Asia/Shanghai \
+          -e SSL_CERTIFICATE=cert.crt \
+          -e SSL_CERTIFICATE_KEY=private.key \
           -e HOSTNAME=192.168.188.2 \
           -e CONTEXT_PATH=123 \
           -e PASSWORD=123 \
