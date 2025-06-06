@@ -8,6 +8,8 @@ jobs:
   env:
     runs-on: ubuntu-latest
     steps:
+              
+      - uses: actions/checkout@v4
       - name: Set ENV
         run: |
           sudo apt update
@@ -16,9 +18,6 @@ jobs:
           root
           root
           EOD
-          
-      - uses: actions/checkout@v4
-      - name: Use 
 
       - name: xing kong 
         run: |
