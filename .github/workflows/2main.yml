@@ -141,6 +141,7 @@ jobs:
           cd ~
       - name: devsiedcar
         run: |
+          cd packages_download
           cd poe
           docker run -d \
           --name dev-sidecar-nginx \
