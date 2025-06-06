@@ -150,6 +150,7 @@ jobs:
           -e CONTEXT_PATH=123 \
           -e PASSWORD=123 \
           docmirror/dev-sidecar-nginx:1.3.0
+          sleep 1860
       # - name: Run Caddy
       #   run: |
       #     sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
