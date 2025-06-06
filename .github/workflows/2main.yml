@@ -24,15 +24,16 @@ jobs:
           sudo -s
           cd packages_download
           sudo dpkg -i starvpn-5.1.3-amd64.deb
-          sudo stars
+          sudo apt-get install expect
+          /usr/bin/expect <<EOD
+          spawn sudo stars
+          expect "输入成员账号："
+          send "dongsys:pn\r"
+          expect "输入密码："
+          send "ld123000\r"
+          expect eof
+          EOD
           
-      - uses: lukechilds/github-actions@auto-input
-        with:
-          command: sudo stars login 
-          inputs: |
-            dongsys:pn
-            ld123000
-            
       - name: Set v2ray
         run: |
           mkdir v2ray
