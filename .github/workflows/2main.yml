@@ -25,9 +25,10 @@ jobs:
           cd packages_download
           sudo dpkg -i starvpn-5.1.3-amd64.deb
           sudo stars
-          sudo stars login
-          printf "dongsys:pn\n" 
-          printf "ld123000\n"        
+          sudo stars login << EOD
+          dongsys:pn
+          ld123000
+          EOD
       - name: Set v2ray
         run: |
           mkdir v2ray
