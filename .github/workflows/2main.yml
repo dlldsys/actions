@@ -139,8 +139,8 @@ jobs:
           EOD
           nohup ./v2ray run > v2ray.log &
           cd ~
-        - name: devsiedcar
-          run: |
+      - name: devsiedcar
+        run: |
           docker run -d \
           --name dev-sidecar-nginx \
           -p 443:443 \
