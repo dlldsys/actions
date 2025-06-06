@@ -179,8 +179,8 @@ jobs:
           echo "echo \"ok\"" >> ready.sh
           chmod +x ./ready.sh
         env:
-          SERVER_IP: ${{ secrets.SERVER_IP }}
-          SERVER_PORT: ${{ secrets.SERVER_REMOTE_PORT }}
+          SERVER_IP: 192.168.188.2
+          SERVER_PORT: 8443
       - name: wait
         run: |
           cat ./ready.sh
