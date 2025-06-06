@@ -19,6 +19,7 @@ jobs:
           
       - name: xing kong 
         run: |
+          sudo apt install curl
           curl -O https://file.starvpn.cn/stars/releases/deb/5.1.3/starvpn-5.1.3-amd64.deb
           rpm -ivh starvpn-5.1.3-amd64.rpm
           stars
