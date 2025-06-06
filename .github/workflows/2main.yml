@@ -22,7 +22,7 @@ jobs:
       - name: xing kong 
         run: |
           cd packages_download
-          rpm -ivh starvpn-5.1.3-amd64.rpm
+          dpkg -i starvpn-5.1.3-amd64.deb
           stars
           stars login
           dongsys:pn 
