@@ -20,7 +20,8 @@ jobs:
       
       - name: Create ZIP package
         run: |
-          cd build && zip -r lambda_package.zip .
+          ls
+          cd build && zip -r build.zip .
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
