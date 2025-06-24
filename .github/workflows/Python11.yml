@@ -18,7 +18,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          pip3.11 install -t ./build psycopg2-binary==2.9.9
+          pip install -t ./build psycopg2-binary==2.9.9
           cp -r lambda_function/* ./build/
           
       - name: Create ZIP package
