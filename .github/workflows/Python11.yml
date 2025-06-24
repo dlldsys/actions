@@ -17,12 +17,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Build package
-        run: |
-          mkdir -p ./build
-          pip install -t ./build psycopg2-binary==2.9.9
-          cd build && zip -r ../build.zip .
+          run: |
+            mkdir -p ./build
+            pip install -t ./build psycopg2-binary==2.9.9
+            cd build && zip -r ../build.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
