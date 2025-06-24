@@ -22,9 +22,10 @@ jobs:
             cd build
             ls
             zip -r ../build.zip .
+            ls
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: build
-          path: build.zip
+          path: ./build/build.zip
