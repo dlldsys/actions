@@ -18,7 +18,7 @@ jobs:
           run: |
             mkdir build
             pip install -t ./build psycopg2-binary==2.9.9
-            cd build && zip -r build.zip .
+            cd build && zip -r ../build.zip .
           
       - name: Upload artifact
         uses: actions/upload-artifact@v4
