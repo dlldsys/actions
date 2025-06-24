@@ -12,7 +12,7 @@ jobs:
       image: amazonlinux:2023
       
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       - name: Install Python 3.11
         run: |
           amazon-linux-extras enable python3.11
