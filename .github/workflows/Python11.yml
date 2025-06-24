@@ -1,25 +1,49 @@
-name: run docker33
+name: Build psycopg2-binary for AWS Python11
+
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
+    inputs:
+      python_version:
+        description: 'Python version to use (e.g., 3.11)'
+        required: true
+        default: '3.11'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-      
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.11
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          run: |
-            pip install -t ./images psycopg2-binary==2.9.9
-            zip -r images.zip .
-            
+          python-version: ${{ github.event.inputs.python_version }}
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev gcc
+
+      - name: Create virtual environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+
+      - name: Install and package psycopg2-binary
+        run: |
+          source venv/bin/activate
+          pip install psycopg2-binary
+          mkdir -p psycopg2_package/lib/python${{ github.event.inputs.python_version }}/site-packages
+          cp -r venv/lib/python${{ github.event.inputs.python_version }}/site-packages/psycopg2* psycopg2_package/lib/python${{ github.event.inputs.python_version }}/site-packages/
+          cp -r venv/lib64/python${{ github.event.inputs.python_version }}/site-packages/psycopg2* psycopg2_package/lib/python${{ github.event.inputs.python_version }}/site-packages/ || true
+          cd psycopg2_package
+          zip -r ../psycopg2-binary-aws-python${{ github.event.inputs.python_version }}.zip .
+          cd ..
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: python-deps
-          path: images.zip
+          name: psycopg2-binary-aws-python${{ github.event.inputs.python_version }}
+          path: psycopg2-binary-aws-python${{ github.event.inputs.python_version }}.zip
