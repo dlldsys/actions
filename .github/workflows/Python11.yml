@@ -1,6 +1,5 @@
-
 on:
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
   push:
     branches: [ main ]
 
@@ -11,21 +10,22 @@ jobs:
       image: amazonlinux:2023
       
     steps:
+      - name: Install system dependencies
+        run: yum install -y zip python3.11
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          run: |
-            mkdir build
-            pip install -t ./build psycopg2-binary==2.9.9
-            ls
-            cd build
-            ls
-            zip -r ../build.zip .
-            ls
-          
+
+      - name: Build package
+        run: |
+          mkdir -p ./build
+          pip install -t ./build psycopg2-binary==2.9.9
+          cd build && zip -r ../build.zip .
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build
-          path: ./build/build.zip
+          name: python-deps
+          path: ./build.zip
