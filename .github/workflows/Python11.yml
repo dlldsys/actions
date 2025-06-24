@@ -22,12 +22,10 @@ jobs:
             pip install -t ./build psycopg2-binary==2.9.9
             cd build && zip -r ../build.zip .
 
-            
-      - name: get files
+      - name: List container files
         run: |
-          ls
-          cd ./build
-          ls
+          yum install -y tree
+          tree -L 2 /github/workspace
             
       - name: Upload artifact
         uses: actions/upload-artifact@v4
