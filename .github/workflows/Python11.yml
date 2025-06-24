@@ -16,7 +16,7 @@ jobs:
           python-version: '3.11'
           run: |
             pip install -t ./images psycopg2-binary==2.9.9
-            cd images && zip -r images.zip .
+            zip -r images.zip .
             
       - name: Upload artifact
         uses: actions/upload-artifact@v4
