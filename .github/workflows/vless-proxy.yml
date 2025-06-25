@@ -125,27 +125,6 @@ jobs:
           
           sleep 15  # 等待隧道启动，增加等待时间
           
-          # 获取 SakuraFrp 分配的公网地址和端口
-          # 使用 curl 和 jq 从 SakuraFrp API 获取隧道信息
-          TUNNEL_INFO=$(curl -s "https://api.natfrp.com/api/tunnels/list?token=$SAKURAFRP_TOKEN" | jq -r ".data.tunnels[] | select(.id == $NODE_ID)")
-          SERVER_DOMAIN=$(echo "$TUNNEL_INFO" | jq -r '.domain')
-          SERVER_PORT=$(echo "$TUNNEL_INFO" | jq -r '.port')
-          
-          # 如果 API 获取失败，尝试从日志中提取
-          if [ -z "$SERVER_DOMAIN" ] || [ "$SERVER_DOMAIN" == "null" ]; then
-            echo "无法从 API 获取隧道信息，尝试从日志提取..."
-            SERVER_DOMAIN=$(docker logs sakura1 2>&1 | grep -oP '隧道域名: \K[^ ]+')
-            SERVER_PORT=$(docker logs sakura1 2>&1 | grep -oP '隧道端口: \K\d+')
-          fi
-          
-          # 再次验证是否获取到有效信息
-          if [ -z "$SERVER_DOMAIN" ] || [ -z "$SERVER_PORT" ]; then
-            echo "警告: 无法获取 SakuraFrp 隧道信息!"
-            echo "请手动检查 SakuraFrp 控制台获取连接信息"
-            SERVER_DOMAIN="unknown"
-            SERVER_PORT="unknown"
-          fi
-          
           # 输出服务信息
           echo "VLESS+WS 服务端已通过 SakuraFrp 暴露"
           echo "公网域名: $SERVER_DOMAIN"
