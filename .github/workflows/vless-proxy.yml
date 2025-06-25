@@ -117,7 +117,7 @@ jobs:
           
       - name: Upload server information
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vless-server-info
           path: vless_config_info.txt
