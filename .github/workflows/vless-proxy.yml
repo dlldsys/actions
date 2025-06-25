@@ -108,11 +108,6 @@ jobs:
           -f $SAKURAFRP_TOKEN:$node_id &
           
           sleep 10  # 等待隧道启动
-          cd ..
-          # 获取 SakuraFrp 分配的公网地址和端口
-          TUNNEL_INFO=$(./sakurafrp/sakurafrp info $TUNNEL_ID)
-          SERVER_DOMAIN=$(echo "$TUNNEL_INFO" | grep -oP '域名: \K[^ ]+')
-          SERVER_PORT=$(echo "$TUNNEL_INFO" | grep -oP '端口: \K\d+')
           
           # 输出服务信息
           echo "VLESS 服务端已通过 SakuraFrp 暴露"
