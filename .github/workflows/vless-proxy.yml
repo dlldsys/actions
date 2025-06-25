@@ -105,7 +105,7 @@ jobs:
           --name=sakura1 \
           natfrp.com/frpc \
           --disable_log_color \
-          -f $SAKURAFRP_TOKEN:$node_id &
+          -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:19089016
           
           sleep 10  # 等待隧道启动
           
