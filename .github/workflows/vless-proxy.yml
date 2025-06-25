@@ -101,11 +101,12 @@ jobs:
           chmod 755 frpc
           ls -ls frpc
           md5sum frpc
+          cd frpc
           frpc -v
           frpc -f $SAKURAFRP_TOKEN:$node_id &
           
           sleep 10  # 等待隧道启动
-          
+          cd ..
           # 获取 SakuraFrp 分配的公网地址和端口
           TUNNEL_INFO=$(./sakurafrp/sakurafrp info $TUNNEL_ID)
           SERVER_DOMAIN=$(echo "$TUNNEL_INFO" | grep -oP '域名: \K[^ ]+')
