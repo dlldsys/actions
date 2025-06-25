@@ -128,7 +128,7 @@ jobs:
           加密: none
           传输协议: tcp
           EOF
-          
+          docker logs sakura1
           # 保持服务运行
           while true; do sleep 3600; done
           
