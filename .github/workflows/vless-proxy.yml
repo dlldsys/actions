@@ -95,19 +95,15 @@ jobs:
           # 启动 Xray（VLESS 服务端）
           sudo xray run -c config.json &
           sleep 5  # 等待 Xray 启动
-
+         
           # 下载并配置 SakuraFrp 客户端
-          wget https://github.com/sakurafrp/sakurafrp/releases/latest/download/sakurafrp-linux-amd64 -O sakurafrp
-          chmod +x sakurafrp
-
-          # 登录 SakuraFrp
-          ./sakurafrp login $SAKURAFRP_TOKEN
+          wget -O frpc  https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-11.1/frpc_linux_amd64
+          chmod 755 frpc
+          ls -ls frpc
+          md5sum frpc
+          frpc -v
+          frpc -f $SAKURAFRP_TOKEN:$node_id &
           
-          # 创建 TCP 隧道（将本地端口转发到 SakuraFrp 节点）
-          TUNNEL_ID=$(./sakurafrp/sakurafrp create $NODE_ID tcp 127.0.0.1:$PORT | grep -oP '隧道ID: \K\d+')
-          
-          # 启动隧道
-          ./sakurafrp/sakurafrp start $TUNNEL_ID &
           sleep 10  # 等待隧道启动
           
           # 获取 SakuraFrp 分配的公网地址和端口
