@@ -1,4 +1,4 @@
-name: VLESS Server with SakuraFrp (VLESS+WS)
+name: VLESS Server with SakuraFrp
 
 on:
   workflow_dispatch:
@@ -11,14 +11,6 @@ on:
         description: 'VLESS UUID'
         required: true
         default: '2178250e-7cd3-404c-bcf4-02fe5f25d171'
-      ws_path:
-        description: 'WebSocket 路径'
-        required: true
-        default: '/ws'
-      host:
-        description: '伪装域名'
-        required: true
-        default: 'www.example.com'
       sakurafrp_token:
         description: 'SakuraFrp 认证令牌'
         required: true
@@ -37,12 +29,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up VLESS+WS Server
+      - name: Set up VLESS Server
         env:
           PORT: ${{ github.event.inputs.port }}
           UUID: ${{ github.event.inputs.uuid }}
-          WS_PATH: ${{ github.event.inputs.ws_path }}
-          HOST: ${{ github.event.inputs.host }}
           SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
           NODE_ID: ${{ github.event.inputs.node_id }}
         run: |
@@ -56,7 +46,7 @@ jobs:
           sudo mv xray/xray /usr/local/bin/
           sudo chmod +x /usr/local/bin/xray
 
-          # 创建 VLESS+WS 服务端配置文件
+          # 创建 VLESS 服务端配置文件
           cat > config.json << EOF
           {
             "log": {
@@ -76,14 +66,8 @@ jobs:
                   "decryption": "none"
                 },
                 "streamSettings": {
-                  "network": "ws",
-                  "security": "none",
-                  "wsSettings": {
-                    "path": "$WS_PATH",
-                    "headers": {
-                      "Host": "$HOST"
-                    }
-                  }
+                  "network": "tcp",
+                  "security": "none"
                 }
               }
             ],
@@ -108,7 +92,7 @@ jobs:
             exit 1
           fi
 
-          # 启动 Xray（VLESS+WS 服务端）
+          # 启动 Xray（VLESS 服务端）
           sudo xray run -c config.json &
           sleep 5  # 等待 Xray 启动
          
@@ -121,37 +105,31 @@ jobs:
           --name=sakura1 \
           natfrp.com/frpc \
           --disable_log_color \
-          -f $SAKURAFRP_TOKEN:$NODE_ID &
+          -f $SAKURAFRP_TOKEN:$node_id &
           
-          sleep 15  # 等待隧道启动，增加等待时间
+          sleep 10  # 等待隧道启动
           
           # 输出服务信息
-          echo "VLESS+WS 服务端已通过 SakuraFrp 暴露"
+          echo "VLESS 服务端已通过 SakuraFrp 暴露"
           echo "公网域名: $SERVER_DOMAIN"
           echo "公网端口: $SERVER_PORT"
           echo "UUID: $UUID"
-          echo "WebSocket 路径: $WS_PATH"
-          echo "伪装域名: $HOST"
           
-          # 生成新的 VLESS+WS URL
-          # 格式: vless://UUID@服务器地址:端口?encryption=none&security=none&type=ws&host=伪装域名&path=路径#备注
-          ESCAPED_PATH=$(echo "$WS_PATH" | sed 's/\//%2F/g')
-          VLESS_URL="vless://$UUID@$SERVER_DOMAIN:$SERVER_PORT?encryption=none&security=none&type=ws&host=$HOST&path=$ESCAPED_PATH#GitHub_Actions_VLESS+WS"
-          echo "VLESS+WS URL: $VLESS_URL"
+          # 生成新的 VLESS URL（使用 SakuraFrp 提供的域名和端口）
+          VLESS_URL="vless://$UUID@$SERVER_DOMAIN:$SERVER_PORT?encryption=none&security=none&type=tcp#GitHub_Actions_VLESS"
+          echo "VLESS URL: $VLESS_URL"
           
           # 保存配置信息
           cat > vless_config_info.txt << EOF
-          VLESS+WS 服务端配置信息:
+          VLESS 服务端配置信息:
           地址: $SERVER_DOMAIN
           端口: $SERVER_PORT
           用户ID: $UUID
           加密: none
-          传输协议: ws
-          WebSocket 路径: $WS_PATH
-          伪装域名: $HOST
-          VLESS URL: $VLESS_URL
+          传输协议: tcp
           EOF
           
+          # 保持服务运行
           while true; do sleep 3600; done
           
       - name: Upload server information
