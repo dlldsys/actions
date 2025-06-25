@@ -60,7 +60,7 @@ jobs:
           
       - name: Upload access information
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vless-access-info
           path: vless_access_info.txt    
