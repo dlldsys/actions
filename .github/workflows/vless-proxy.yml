@@ -1,12 +1,16 @@
-name: VLESS Proxy Workflow
+name: VLESS Server Workflow
 
 on:
   workflow_dispatch:
     inputs:
       port:
-        description: '本地监听端口'
+        description: 'VLESS 服务端监听端口'
         required: true
-        default: '1080'
+        default: '8080'
+      uuid:
+        description: 'VLESS UUID'
+        required: true
+        default: '2178250e-7cd3-404c-bcf4-02fe5f25d171'
 
 jobs:
   build:
@@ -17,14 +21,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up VLESS Proxy
+      - name: Set up VLESS Server
         env:
-          VLESS_CONFIG: ${{ secrets.VLESS_CONFIG }}
           PORT: ${{ github.event.inputs.port }}
+          UUID: ${{ github.event.inputs.uuid }}
         run: |
           # 安装必要的软件
           sudo apt-get update
-          sudo apt-get install -y wget unzip
+          sudo apt-get install -y wget unzip jq
 
           # 下载并安装 Xray
           wget https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip
@@ -32,35 +36,88 @@ jobs:
           sudo mv xray/xray /usr/local/bin/
           sudo chmod +x /usr/local/bin/xray
 
-          # 创建 VLESS 配置文件
-          echo "$VLESS_CONFIG" | base64 -d > config.json
+          # 创建 VLESS 服务端配置文件
+          cat > config.json << EOF
+          {
+            "log": {
+              "loglevel": "warning"
+            },
+            "inbounds": [
+              {
+                "port": $PORT,
+                "protocol": "vless",
+                "settings": {
+                  "clients": [
+                    {
+                      "id": "\$UUID",
+                      "level": 0
+                    }
+                  ],
+                  "decryption": "none"
+                },
+                "streamSettings": {
+                  "network": "tcp",
+                  "security": "none"
+                }
+              }
+            ],
+            "outbounds": [
+              {
+                "protocol": "freedom",
+                "settings": {}
+              }
+            ]
+          }
+          EOF
+          
+          # 调试：显示配置文件内容和大小
+          echo "配置文件内容:"
+          cat config.json
+          echo "配置文件大小:"
+          du -h config.json
+          
+          # 验证配置文件格式
+          if ! jq . config.json >/dev/null 2>&1; then
+            echo "配置文件格式错误!"
+            exit 1
+          fi
 
-          # 修改配置文件中的监听端口
-          sed -i "s/1080/$PORT/g" config.json
+          # 开放端口
+          sudo ufw allow $PORT/tcp
 
-          # 启动 Xray（VLESS 客户端）
+          # 启动 Xray（VLESS 服务端）
           sudo xray run -c config.json &
           sleep 5  # 等待 Xray 启动
 
-          # 验证代理是否工作
-          curl -x socks5h://localhost:$PORT -s ifconfig.me
-          
-          # 输出访问信息
+          # 输出服务信息
           PUBLIC_IP=$(curl -s ifconfig.me)
-          echo "VLESS 代理已启动"
+          echo "VLESS 服务端已启动"
           echo "公网 IP: $PUBLIC_IP"
-          echo "本地监听端口: $PORT"
-          echo "代理地址: socks5://$PUBLIC_IP:$PORT"
+          echo "监听端口: $PORT"
+          echo "UUID: $UUID"
+          echo "配置信息:"
+          echo "地址: $PUBLIC_IP"
+          echo "端口: $PORT"
+          echo "用户ID: $UUID"
+          echo "加密: none"
+          echo "传输协议: tcp"
           
           # 将访问信息保存到文件
-          echo "代理地址: socks5://$PUBLIC_IP:$PORT" > vless_access_info.txt
+          cat > vless_config_info.txt << EOF
+          VLESS 服务端配置信息:
+          地址: $PUBLIC_IP
+          端口: $PORT
+          用户ID: $UUID
+          加密: none
+          传输协议: tcp
+          EOF
 
           # 保持服务运行
           while true; do sleep 3600; done
           
-      - name: Upload access information
+      - name: Upload server information
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: vless-access-info
-          path: vless_access_info.txt    
+          name: vless-server-info
+          path: vless_config_info.txt
