@@ -1,4 +1,4 @@
-name: VLESS Server Workflow
+name: VLESS Server with SakuraFrp
 
 on:
   workflow_dispatch:
@@ -11,6 +11,14 @@ on:
         description: 'VLESS UUID'
         required: true
         default: '2178250e-7cd3-404c-bcf4-02fe5f25d171'
+      sakurafrp_token:
+        description: 'SakuraFrp 认证令牌'
+        required: true
+        default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'
+      node_id:
+        description: 'SakuraFrp 节点 ID'
+        required: true
+        default: '19089016'
 
 jobs:
   build:
@@ -25,6 +33,8 @@ jobs:
         env:
           PORT: ${{ github.event.inputs.port }}
           UUID: ${{ github.event.inputs.uuid }}
+          SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
+          NODE_ID: ${{ github.event.inputs.node_id }}
         run: |
           # 安装必要的软件
           sudo apt-get update
@@ -82,47 +92,50 @@ jobs:
             exit 1
           fi
 
-          # 开放端口
-          sudo ufw allow $PORT/tcp
-
-          # 启动 Xray
+          # 启动 Xray（VLESS 服务端）
           sudo xray run -c config.json &
           sleep 5  # 等待 Xray 启动
-    
-          # 安装 ngrok
-          wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
-          tar -xzf ngrok-v3-stable-linux-amd64.tgz
-          chmod +x ngrok
-    
-          # 使用 ngrok 暴露服务（需要先注册并获取 authtoken）
-          ./ngrok config add-authtoken 2yymD9vtkUrB6PTFuBLDRAQMu9R_34ETUQaYkNVRhSoGDEs2H
-          ./ngrok tcp $PORT &
-          sleep 10  # 等待 ngrok 启动
-    
-          # 获取 ngrok 分配的公网地址和端口
-          NGROK_URL=$(curl -s http://127.0.0.1:$PORT/api/tunnels | jq -r '.tunnels[0].public_url')
-          NGROK_HOST=$(echo $NGROK_URL | cut -d':' -f2 | sed 's//''/')
-          NGROK_PORT=$(echo $NGROK_URL | cut -d':' -f3)
-    
-          # 输出服务信息（使用 ngrok 地址）
-          echo "VLESS 服务端已通过 ngrok 暴露"
-          echo "公网地址: $NGROK_HOST"
-          echo "公网端口: $NGROK_PORT"
+
+          # 下载并配置 SakuraFrp 客户端
+          wget https://www.natfrp.com/download/linux_amd64 -O sakurafrp.zip
+          unzip sakurafrp.zip -d sakurafrp
+          chmod +x sakurafrp/sakurafrp
+
+          # 登录 SakuraFrp
+          ./sakurafrp/sakurafrp login $SAKURAFRP_TOKEN
+          
+          # 创建 TCP 隧道（将本地端口转发到 SakuraFrp 节点）
+          TUNNEL_ID=$(./sakurafrp/sakurafrp create $NODE_ID tcp 127.0.0.1:$PORT | grep -oP '隧道ID: \K\d+')
+          
+          # 启动隧道
+          ./sakurafrp/sakurafrp start $TUNNEL_ID &
+          sleep 10  # 等待隧道启动
+          
+          # 获取 SakuraFrp 分配的公网地址和端口
+          TUNNEL_INFO=$(./sakurafrp/sakurafrp info $TUNNEL_ID)
+          SERVER_DOMAIN=$(echo "$TUNNEL_INFO" | grep -oP '域名: \K[^ ]+')
+          SERVER_PORT=$(echo "$TUNNEL_INFO" | grep -oP '端口: \K\d+')
+          
+          # 输出服务信息
+          echo "VLESS 服务端已通过 SakuraFrp 暴露"
+          echo "公网域名: $SERVER_DOMAIN"
+          echo "公网端口: $SERVER_PORT"
           echo "UUID: $UUID"
-    
-          # 生成新的 VLESS URL（使用 ngrok 地址）
-          VLESS_URL="vless://$UUID@$NGROK_HOST:$NGROK_PORT?encryption=none&security=none&type=tcp#GitHub_Actions_VLESS"
+          
+          # 生成新的 VLESS URL（使用 SakuraFrp 提供的域名和端口）
+          VLESS_URL="vless://$UUID@$SERVER_DOMAIN:$SERVER_PORT?encryption=none&security=none&type=tcp#GitHub_Actions_VLESS"
           echo "VLESS URL: $VLESS_URL"
-          # 将访问信息保存到文件
+          
+          # 保存配置信息
           cat > vless_config_info.txt << EOF
           VLESS 服务端配置信息:
-          地址: $PUBLIC_IP
-          端口: $PORT
+          地址: $SERVER_DOMAIN
+          端口: $SERVER_PORT
           用户ID: $UUID
           加密: none
           传输协议: tcp
           EOF
-
+          
           # 保持服务运行
           while true; do sleep 3600; done
           
