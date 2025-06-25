@@ -2,8 +2,8 @@ name: run docker
 
 on:
   repository_dispatch:
-    types:
-      - webhook
+    # types:
+    #   - webhook
 
 jobs:
 
