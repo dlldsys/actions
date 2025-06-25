@@ -97,9 +97,11 @@ jobs:
           sleep 5  # 等待 Xray 启动
 
           # 下载并配置 SakuraFrp 客户端
-          wget https://www.natfrp.com/download/linux_amd64 -O sakurafrp.zip
-          unzip sakurafrp.zip -d sakurafrp
-          chmod +x sakurafrp/sakurafrp
+          wget https://github.com/sakurafrp/sakurafrp/releases/latest/download/sakurafrp-linux-amd64 -O sakurafrp
+          chmod +x sakurafrp
+
+          # 登录 SakuraFrp
+          ./sakurafrp login $SAKURAFRP_TOKEN
 
           # 登录 SakuraFrp
           ./sakurafrp/sakurafrp login $SAKURAFRP_TOKEN
