@@ -152,6 +152,8 @@ jobs:
           VLESS URL: $VLESS_URL
           EOF
           
+          while true; do sleep 3600; done
+          
       - name: Upload server information
         if: always()
         uses: actions/upload-artifact@v4
