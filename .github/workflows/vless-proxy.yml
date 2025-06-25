@@ -101,7 +101,10 @@ jobs:
           echo "用户ID: $UUID"
           echo "加密: none"
           echo "传输协议: tcp"
-          
+          # 生成 VLESS URL
+          # 格式: vless://UUID@服务器地址:端口?参数#备注
+          VLESS_URL="vless://$UUID@$PUBLIC_IP:$PORT?encryption=none&security=none&type=tcp#GitHub_Actions_VLESS"
+          echo "VLESS URL: $VLESS_URL"
           # 将访问信息保存到文件
           cat > vless_config_info.txt << EOF
           VLESS 服务端配置信息:
