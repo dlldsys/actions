@@ -152,19 +152,6 @@ jobs:
           VLESS URL: $VLESS_URL
           EOF
           
-          # 定期检查服务状态
-          while true; do
-            if ! pgrep xray > /dev/null; then
-              echo "错误: Xray 服务已停止!"
-              exit 1
-            fi
-            if ! docker ps -f name=sakura1 | grep -q sakura1; then
-              echo "错误: SakuraFrp 客户端已停止!"
-              exit 1
-            fi
-            sleep 300  # 每5分钟检查一次
-          done
-          
       - name: Upload server information
         if: always()
         uses: actions/upload-artifact@v4
