@@ -204,7 +204,7 @@ jobs:
           --name=sakura1 \
           natfrp.com/frpc \
           --disable_log_color \
-          -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:21663551
+          -f $sakurafrp_token:$node_id
           
           sleep 10  # 等待隧道启动
           
@@ -215,7 +215,7 @@ jobs:
           echo "UUID: $UUID"
           
           # 生成新的 VLESS URL（使用 SakuraFrp 提供的域名和端口）
-          VLESS_URL="vless://$UUID@$SERVER_DOMAIN:$SERVER_PORT?encryption=none&security=none&type=tcp#GitHub_Actions_VLESS"
+          VLESS_URL="vless://$UUID@frp-few.com:51012?encryption=none&security=none&type=tcp#GitHub_Actions_VLESS"
           echo "VLESS URL: $VLESS_URL"
           
           # 保存配置信息
