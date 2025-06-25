@@ -85,25 +85,33 @@ jobs:
           # 开放端口
           sudo ufw allow $PORT/tcp
 
-          # 启动 Xray（VLESS 服务端）
+          # 启动 Xray
           sudo xray run -c config.json &
           sleep 5  # 等待 Xray 启动
-
-          # 输出服务信息
-          PUBLIC_IP=$(curl -s ifconfig.me)
-          echo "VLESS 服务端已启动"
-          echo "公网 IP: $PUBLIC_IP"
-          echo "监听端口: $PORT"
+    
+          # 安装 ngrok
+          wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+          tar -xzf ngrok-v3-stable-linux-amd64.tgz
+          chmod +x ngrok
+    
+          # 使用 ngrok 暴露服务（需要先注册并获取 authtoken）
+          ./ngrok config add-authtoken <YOUR_NGROK_AUTH_TOKEN>
+          ./ngrok tcp $PORT &
+          sleep 10  # 等待 ngrok 启动
+    
+          # 获取 ngrok 分配的公网地址和端口
+          NGROK_URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          NGROK_HOST=$(echo $NGROK_URL | cut -d':' -f2 | sed 's//''/')
+          NGROK_PORT=$(echo $NGROK_URL | cut -d':' -f3)
+    
+          # 输出服务信息（使用 ngrok 地址）
+          echo "VLESS 服务端已通过 ngrok 暴露"
+          echo "公网地址: $NGROK_HOST"
+          echo "公网端口: $NGROK_PORT"
           echo "UUID: $UUID"
-          echo "配置信息:"
-          echo "地址: $PUBLIC_IP"
-          echo "端口: $PORT"
-          echo "用户ID: $UUID"
-          echo "加密: none"
-          echo "传输协议: tcp"
-          # 生成 VLESS URL
-          # 格式: vless://UUID@服务器地址:端口?参数#备注
-          VLESS_URL="vless://$UUID@$PUBLIC_IP:$PORT?encryption=none&security=none&type=tcp#GitHub_Actions_VLESS"
+    
+          # 生成新的 VLESS URL（使用 ngrok 地址）
+          VLESS_URL="vless://$UUID@$NGROK_HOST:$NGROK_PORT?encryption=none&security=none&type=tcp#GitHub_Actions_VLESS"
           echo "VLESS URL: $VLESS_URL"
           # 将访问信息保存到文件
           cat > vless_config_info.txt << EOF
