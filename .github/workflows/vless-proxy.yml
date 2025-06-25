@@ -49,7 +49,7 @@ jobs:
                 "settings": {
                   "clients": [
                     {
-                      "id": "\$UUID",
+                      "id": "$UUID",
                       "level": 0
                     }
                   ],
