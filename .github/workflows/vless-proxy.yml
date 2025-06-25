@@ -48,126 +48,126 @@ jobs:
 
           # 创建 VLESS 服务端配置文件
           cat > config.json << EOF
-          {
-            "log": {
-              "loglevel": "warning"
-            },
-            "dns": {
-              "servers": [
-                "8.8.8.8",
-                "1.1.1.1",
-                {
-                  "address": "114.114.114.114",
-                  "port": 53,
-                  "domains": [
-                    "geosite:cn"
-                  ]
-                },
-                "localhost"
-              ],
-              "queryStrategy": "UseIP",
-              "disableCache": false,
-              "enhancedMode": "fake-ip",
-              "fakeIPRange": "198.18.0.1/16",
-              "fakeIPFilter": [
-                "geoip:private",
-                "*.lan"
-              ]
-            },
-            "inbounds": [
-              {
-                "port": $PORT,
-                "protocol": "vless",
-                "settings": {
-                  "clients": [
-                    {
-                      "id": "$UUID",
-                      "level": 0
-                    }
-                  ],
-                  "decryption": "none"
-                },
-                "streamSettings": {
-                  "network": "tcp",
-                  "security": "none"
-                }
-              }
-            ],
-            "outbounds": [
-              {
-                "protocol": "freedom",
-                "settings": {},
-                "tag": "proxy"
+            {
+              "log": {
+                "loglevel": "warning"
               },
-              {
-                "protocol": "blackhole",
-                "settings": {
-                  "response": {
-                    "type": "http"
+              "dns": {
+                "servers": [
+                  "8.8.8.8",
+                  "1.1.1.1",
+                  {
+                    "address": "114.114.114.114",
+                    "port": 53,
+                    "domains": [
+                      "geosite:cn"
+                    ]
+                  },
+                  "localhost"
+                ],
+                "queryStrategy": "UseIP",
+                "disableCache": false,
+                "enhancedMode": "fake-ip",
+                "fakeIPRange": "198.18.0.1/16",
+                "fakeIPFilter": [
+                  "geoip:private",
+                  "*.lan"
+                ]
+              },
+              "inbounds": [
+                {
+                  "port": $PORT,
+                  "protocol": "vless",
+                  "settings": {
+                    "clients": [
+                      {
+                        "id": "$UUID",
+                        "level": 0
+                      }
+                    ],
+                    "decryption": "none"
+                  },
+                  "streamSettings": {
+                    "network": "tcp",
+                    "security": "none"
                   }
-                },
-                "tag": "block"
-              },
-              {
-                "protocol": "freedom",
-                "settings": {},
-                "tag": "direct"
-              }
-            ],
-            "routing": {
-              "domainStrategy": "IPOnDemand",
-              "rules": [
-                {
-                  "type": "field",
-                  "domain": [
-                    "geosite:category-ads-all"
-                  ],
-                  "outboundTag": "block"
-                },
-                {
-                  "type": "field",
-                  "domain": [
-                    "geosite:google",
-                    "geosite:twitter",
-                    "geosite:facebook",
-                    "geosite:telegram"
-                  ],
-                  "outboundTag": "proxy"
-                },
-                {
-                  "type": "field",
-                  "domain": [
-                    "geosite:cn"
-                  ],
-                  "outboundTag": "direct"
-                },
-                {
-                  "type": "field",
-                  "ip": [
-                    "geoip:private"
-                  ],
-                  "outboundTag": "direct"
-                },
-                {
-                  "type": "field",
-                  "ip": [
-                    "geoip:cn"
-                  ],
-                  "outboundTag": "direct"
-                },
-                {
-                  "type": "field",
-                  "port": 53,
-                  "outboundTag": "block"
-                },
-                {
-                  "type": "field",
-                  "network": "udp",
-                  "outboundTag": "proxy"
                 }
-              ]
+              ],
+              "outbounds": [
+                {
+                  "protocol": "freedom",
+                  "settings": {},
+                  "tag": "proxy"
+                },
+                {
+                  "protocol": "blackhole",
+                  "settings": {
+                    "response": {
+                      "type": "http"
+                    }
+                  },
+                  "tag": "block"
+                },
+                {
+                  "protocol": "freedom",
+                  "settings": {},
+                  "tag": "direct"
+                }
+              ],
+              "routing": {
+                "domainStrategy": "IPOnDemand",
+                "rules": [
+                  {
+                    "type": "field",
+                    "domain": [
+                      "geosite:category-ads-all"
+                    ],
+                    "outboundTag": "block"
+                  },
+                  {
+                    "type": "field",
+                    "domain": [
+                      "geosite:google",
+                      "geosite:twitter",
+                      "geosite:facebook",
+                      "geosite:telegram"
+                    ],
+                    "outboundTag": "proxy"
+                  },
+                  {
+                    "type": "field",
+                    "domain": [
+                      "geosite:cn"
+                    ],
+                    "outboundTag": "direct"
+                  },
+                  {
+                    "type": "field",
+                    "ip": [
+                      "geoip:private"
+                    ],
+                    "outboundTag": "direct"
+                  },
+                  {
+                    "type": "field",
+                    "ip": [
+                      "geoip:cn"
+                    ],
+                    "outboundTag": "direct"
+                  },
+                  {
+                    "type": "field",
+                    "port": 53,
+                    "outboundTag": "block"
+                  },
+                  {
+                    "type": "field",
+                    "network": "udp",
+                    "outboundTag": "proxy"
+                  }
+                ]
+              }
             }
-          }
           EOF
           
           # 调试：显示配置文件内容和大小
