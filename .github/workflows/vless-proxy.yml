@@ -6,7 +6,7 @@ on:
       port:
         description: 'VLESS 服务端监听端口'
         required: true
-        default: '8080'
+        default: '47195'
       uuid:
         description: 'VLESS UUID'
         required: true
