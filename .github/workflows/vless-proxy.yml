@@ -102,9 +102,6 @@ jobs:
 
           # 登录 SakuraFrp
           ./sakurafrp login $SAKURAFRP_TOKEN
-
-          # 登录 SakuraFrp
-          ./sakurafrp/sakurafrp login $SAKURAFRP_TOKEN
           
           # 创建 TCP 隧道（将本地端口转发到 SakuraFrp 节点）
           TUNNEL_ID=$(./sakurafrp/sakurafrp create $NODE_ID tcp 127.0.0.1:$PORT | grep -oP '隧道ID: \K\d+')
