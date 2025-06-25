@@ -18,7 +18,7 @@ on:
       node_id:
         description: 'SakuraFrp 节点 ID'
         required: true
-        default: '19089016'
+        default: '21663551'
 
 jobs:
   build:
