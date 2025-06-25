@@ -1,0 +1,41 @@
+{
+  "inbounds": [
+    {
+      "port": 1080,
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true,
+        "ip": "127.0.0.1"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "VLESS_SERVER_ADDRESS",
+            "port": VLESS_SERVER_PORT,
+            "users": [
+              {
+                "id": "VLESS_UUID",
+                "encryption": "none",
+                "flow": "xtls-rprx-vision"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "VLESS_SERVER_NAME",
+          "allowInsecure": false
+        }
+      }
+    }
+  ]
+}    
