@@ -97,13 +97,15 @@ jobs:
           sleep 5  # 等待 Xray 启动
          
           # 下载并配置 SakuraFrp 客户端
-          wget -O frpc  https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-11.1/frpc_linux_amd64
-          chmod 755 frpc
-          ls -ls frpc
-          md5sum frpc
-          cd frpc
-          frpc -v
-          frpc -f $SAKURAFRP_TOKEN:$node_id &
+          docker run \
+          -d \
+          --restart=on-failure:5 \
+          --network=host \
+          --pull=always \
+          --name=sakura1 \
+          natfrp.com/frpc \
+          --disable_log_color \
+          -f $SAKURAFRP_TOKEN:$node_id &
           
           sleep 10  # 等待隧道启动
           cd ..
