@@ -1,4 +1,4 @@
-name: run docker
+name: run docker local
 
 on:
   repository_dispatch:
