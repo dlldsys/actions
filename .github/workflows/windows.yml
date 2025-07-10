@@ -18,7 +18,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          npm install --global windows-build-tools  # 安装Windows构建工具
+          npm install --global windows-build-tools@4.0.0  # 安装Windows构建工具
           npm install ffi-napi  # 安装ffi-napi包
         shell: powershell  # 使用PowerShell执行命令
       
