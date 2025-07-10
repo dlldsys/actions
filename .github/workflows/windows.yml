@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2019
+    runs-on: windows-latest
     
     steps:
       - name: Checkout code
@@ -18,8 +18,6 @@ jobs:
       
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2
-        with:
-         vs-version: '2019'  # 明确使用VS2019
       
       - name: Install Python
         uses: actions/setup-python@v5
