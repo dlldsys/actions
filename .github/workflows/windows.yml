@@ -32,11 +32,6 @@ jobs:
       
       - name: Bypass windows-build-tools
         run: |
-          # 创建一个空的windows-build-tools模块，避免安装
-          mkdir -p node_modules/windows-build-tools
-          echo "module.exports = { install: () => Promise.resolve() }" > node_modules/windows-build-tools/index.js
-          
-          # 安装ffi-napi，强制使用node-gyp编译
           npm install ffi-napi --build-from-source --ignore-scripts=false
         shell: powershell
       
