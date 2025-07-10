@@ -19,7 +19,7 @@ jobs:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2
         with:
-          vs-version: '[16.4,16.5)'
+          vs-version: '2019'
       
       - name: Install Python
         uses: actions/setup-python@v5
