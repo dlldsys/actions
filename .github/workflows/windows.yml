@@ -16,8 +16,16 @@ jobs:
         with:
           node-version: 22
       
-      - name: Add msbuild to PATH
+      - name: Install Visual Studio Build Tools 2019
+        run: |
+          choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" -y
+          refreshenv
+        shell: powershell
+      
+      - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: '2019'
       
       - name: Install Python
         uses: actions/setup-python@v5
