@@ -1,0 +1,34 @@
+name: Build and Package ffi-napi
+
+on:
+  workflow_dispatch:  # 允许手动触发工作流
+
+jobs:
+  build:
+    runs-on: windows-latest  # 使用最新的Windows环境
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4  # 检出代码到工作区
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4  # 设置Node.js环境
+        with:
+          node-version: 20  # 使用Node.js 20.x版本
+      
+      - name: Install dependencies
+        run: |
+          npm install --global windows-build-tools  # 安装Windows构建工具
+          npm install ffi-napi  # 安装ffi-napi包
+        shell: powershell  # 使用PowerShell执行命令
+      
+      - name: Package ffi-napi as zip
+        run: |
+          Compress-Archive -Path node_modules\ffi-napi -DestinationPath ffi-napi-windows.zip  # 打包ffi-napi目录
+        shell: powershell
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4  # 上传打包好的文件作为工件
+        with:
+          name: ffi-napi-windows
+          path: ffi-napi-windows.zip
