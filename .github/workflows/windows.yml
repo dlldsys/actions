@@ -24,11 +24,11 @@ jobs:
         with:
           python-version: '3.12'
       
-      - name: Configure node-gyp
-        run: |
-          npm config set msvs_version 2022
-          npm config set node_gyp "C:\Users\runneradmin\AppData\Roaming\npm\node_modules\node-gyp\bin\node-gyp.js"
-        shell: powershell
+      # - name: Configure node-gyp
+      #   run: |
+      #     npm config set msvs_version 2022
+      #     npm config set node_gyp "C:\Users\runneradmin\AppData\Roaming\npm\node_modules\node-gyp\bin\node-gyp.js"
+      #   shell: powershell
       
       - name: Bypass windows-build-tools
         run: |
