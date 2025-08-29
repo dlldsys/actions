@@ -71,10 +71,10 @@ jobs:
       - name: 保持工作流运行
         run: |
           Write-Host "RDP 服务已启用，frp 客户端已启动"
-          Write-Host "工作流将持续运行 60 分钟"
+          Write-Host "工作流将持续运行 300 分钟"
           
           # 每30秒检查一次frp进程状态
-          $endTime = (Get-Date).AddMinutes(55)
+          $endTime = (Get-Date).AddMinutes(300)
           while ((Get-Date) -lt $endTime) {
             $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
             if (-not $frpProcess) {
