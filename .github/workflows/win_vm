@@ -1,0 +1,42 @@
+name: Win Server with SakuraFrp
+
+on:
+  workflow_dispatch:
+    inputs:
+      sakurafrp_token:
+        description: 'SakuraFrp 认证令牌'
+        required: true
+        default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'
+      node_id:
+        description: 'SakuraFrp 节点 ID'
+        required: true
+        default: '17573313'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up VLESS Server
+        env:
+          SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
+          NODE_ID: ${{ github.event.inputs.node_id }}
+        run: |
+          # 下载并配置 SakuraFrp 客户端
+          docker run \
+          -d \
+          --restart=on-failure:5 \
+          --network=host \
+          --pull=always \
+          --name=sakura1 \
+          natfrp.com/frpc \
+          --disable_log_color \
+          -f  wadr25y8xv6h4ek361eoitlfsn7ow2nn:17573313
+          docker logs sakura1
+          # 保持服务运行
+          while true; do sleep 3600; done
+          
