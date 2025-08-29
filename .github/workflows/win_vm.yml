@@ -6,7 +6,7 @@ on:
       sakurafrp_token:
         description: 'SakuraFrp 认证令牌'
         required: true
-        default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'
+        default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'  # 不要在这里填写实际令牌，保持为空让用户输入
       node_id:
         description: 'SakuraFrp 节点 ID'
         required: true
@@ -15,28 +15,52 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 60  # GitHub Actions 最多运行6小时，这里设置1小时
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up VLESS Server
+      - name: 启用 RDP 服务
+        run: |
+          # 启用远程桌面服务
+          Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          # 确认3389端口开放
+          Get-NetFirewallRule -DisplayName "Remote Desktop - User Mode (TCP-In)"
+
+      - name: 配置 Docker 使用 Linux 容器
+        run: |
+          # 切换到 Linux 容器模式，以支持网络功能
+          & $Env:ProgramFiles\Docker\Docker\DockerCli.exe -SwitchDaemon
+
+      - name: 启动 SakuraFrp 客户端
         env:
           SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
           NODE_ID: ${{ github.event.inputs.node_id }}
         run: |
-          # 下载并配置 SakuraFrp 客户端
-          docker run \
-          -d \
-          --restart=on-failure:5 \
-          --network=host \
-          --pull=always \
-          --name=sakura1 \
-          natfrp.com/frpc \
-          --disable_log_color \
-          -f  wadr25y8xv6h4ek361eoitlfsn7ow2nn:17573313
-          docker logs sakura1
-          # 保持服务运行
-          while true; do sleep 3600; done
+          # 使用 Linux 容器并正确映射端口
+          docker run `
+            -d `
+            --name=sakura-frp `
+            --pull=always `
+            natfrp.com/frpc `
+            --disable_log_color `
+            -f "${env:SAKURAFRP_TOKEN}:${env:NODE_ID}"
           
+          # 等待客户端启动并显示日志
+          Start-Sleep -Seconds 10
+          docker logs sakura-frp
+
+      - name: 保持工作流运行
+        run: |
+          Write-Host "Frp 客户端已启动，保持连接中..."
+          # 每30秒检查一次frp容器状态
+          while ($true) {
+            if (-not (docker ps --filter "name=sakura-frp" --format "{{.Names}}")) {
+              Write-Error "Frp 容器已停止，工作流将结束"
+              exit 1
+            }
+            Start-Sleep -Seconds 30
+          }
+    
