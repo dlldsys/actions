@@ -37,7 +37,7 @@ jobs:
           # 下载 Windows 版 frp 客户端
           Invoke-WebRequest -Uri "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe" -OutFile "frpc.exe"
 
-          frpc -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:17573313
+          .\frpc.exe -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:17573313
           
           # 等待启动并显示日志
           Start-Sleep -Seconds 10
