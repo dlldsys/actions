@@ -35,13 +35,9 @@ jobs:
           NODE_ID: ${{ github.event.inputs.node_id }}
         run: |
           # 下载 Windows 版 frp 客户端
-          Invoke-WebRequest -Uri "https://getfrp.sh/d/frpc_windows_amd64.exe" -OutFile "frpc.exe"
-          
-          # 创建配置文件
-          "@echo off`nfrpc.exe --disable_log_color -f `"$env:SAKURAFRP_TOKEN:$env:NODE_ID`"" | Out-File -FilePath "start_frp.bat" -Encoding ASCII
-          
-          # 启动 frp 客户端（后台运行）
-          Start-Process -FilePath "start_frp.bat" -NoNewWindow
+          Invoke-WebRequest -Uri "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe" -OutFile "frpc.exe"
+
+          frpc -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:17573313
           
           # 等待启动并显示日志
           Start-Sleep -Seconds 10
