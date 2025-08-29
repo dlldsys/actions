@@ -15,7 +15,7 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 60  # GitHub Actions 最多运行6小时，这里设置1小时
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -23,43 +23,42 @@ jobs:
 
       - name: 启用 RDP 服务
         run: |
-          # 启用远程桌面服务
+          # 启用远程桌面
           Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          # 确认3389端口开放
-          Get-NetFirewallRule -DisplayName "Remote Desktop - User Mode (TCP-In)"
+          # 显示 RDP 服务状态
+          Get-Service TermService
 
-      - name: 配置 Docker 使用 Linux 容器
-        run: |
-          # 切换到 Linux 容器模式，以支持网络功能
-          & $Env:ProgramFiles\Docker\Docker\DockerCli.exe -SwitchDaemon
-
-      - name: 启动 SakuraFrp 客户端
+      - name: 下载并配置 SakuraFrp 客户端
         env:
           SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
           NODE_ID: ${{ github.event.inputs.node_id }}
         run: |
-          # 使用 Linux 容器并正确映射端口
-          docker run `
-            -d `
-            --name=sakura-frp `
-            --pull=always `
-            natfrp.com/frpc `
-            --disable_log_color `
-            -f "${env:SAKURAFRP_TOKEN}:${env:NODE_ID}"
+          # 下载 Windows 版 frp 客户端
+          Invoke-WebRequest -Uri "https://getfrp.sh/d/frpc_windows_amd64.exe" -OutFile "frpc.exe"
           
-          # 等待客户端启动并显示日志
+          # 创建配置文件
+          "@echo off`nfrpc.exe --disable_log_color -f `"$env:SAKURAFRP_TOKEN:$env:NODE_ID`"" | Out-File -FilePath "start_frp.bat" -Encoding ASCII
+          
+          # 启动 frp 客户端（后台运行）
+          Start-Process -FilePath "start_frp.bat" -NoNewWindow
+          
+          # 等待启动并显示日志
           Start-Sleep -Seconds 10
-          docker logs sakura-frp
+          Get-Content -Path "frpc.log" -ErrorAction SilentlyContinue
 
       - name: 保持工作流运行
         run: |
-          Write-Host "Frp 客户端已启动，保持连接中..."
-          # 每30秒检查一次frp容器状态
-          while ($true) {
-            if (-not (docker ps --filter "name=sakura-frp" --format "{{.Names}}")) {
-              Write-Error "Frp 容器已停止，工作流将结束"
-              exit 1
+          Write-Host "RDP 服务已启用，frp 客户端已启动"
+          Write-Host "工作流将持续运行 60 分钟"
+          
+          # 每30秒检查一次frp进程状态
+          $endTime = (Get-Date).AddMinutes(55)
+          while ((Get-Date) -lt $endTime) {
+            $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
+            if (-not $frpProcess) {
+              Write-Error "frp 客户端已停止，重新启动..."
+              Start-Process -FilePath "start_frp.bat" -NoNewWindow
             }
             Start-Sleep -Seconds 30
           }
