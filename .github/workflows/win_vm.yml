@@ -4,14 +4,6 @@ name: Win Server with SakuraFrp
 on:
   workflow_dispatch:
     inputs:
-      sakurafrp_token:
-        description: 'SakuraFrp 认证令牌（从控制台「账号设置-API令牌」获取）'
-        required: true
-        default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'  # 清空默认值，强制手动输入，禁止硬编码敏感信息
-      node_id:
-        description: 'SakuraFrp 隧道ID（从「隧道管理」复制，格式如17573313）'
-        required: true
-        default: '17573313'  # 常用默认值，可根据实际隧道修改
       zerotier_fixed_ip:
         description: 'ZeroTier 固定IP（如192.168.192.100，需与网络网段匹配）'
         required: true
@@ -64,34 +56,6 @@ jobs:
           Write-Host "🔑 用户名: $username"
           Write-Host "🔑 密码: $($password | ConvertFrom-SecureString -AsPlainText)"
           Write-Host "=======================================================`n"
-
-      # 4. 下载并启动SakuraFrp（使用输入的令牌）
-      - name: Install & Start SakuraFrp Client
-        shell: pwsh
-        env:
-          SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
-          SAKURAFRP_NODE_ID: ${{ github.event.inputs.node_id }}
-        run: |
-          # 下载SakuraFrp客户端（官方稳定版）
-          $frpUrl = "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe"
-          Invoke-WebRequest -Uri $frpUrl -OutFile "frpc.exe" -UseBasicParsing -TimeoutSec 30
-          
-          # 生成启动脚本（避免命令行参数暴露）
-          "@echo off`nfrpc.exe -f %SAKURAFRP_TOKEN%:%SAKURAFRP_NODE_ID%" | Out-File "start_frp.bat" -Encoding ASCII
-          
-          # 后台启动Frp（无新窗口）
-          Start-Process -FilePath "start_frp.bat" -NoNewWindow -PassThru
-          Start-Sleep -Seconds 10  # 等待连接服务器
-          
-          # 验证Frp运行状态
-          $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
-          if ($frpProcess) {
-            Write-Host "✅ SakuraFrp已启动，进程ID: $($frpProcess.Id)"
-          } else {
-            Write-Error "❌ SakuraFrp启动失败，日志如下:"
-            Get-Content -Path "frpc.log" -ErrorAction SilentlyContinue
-            exit 1
-          }
 
       # 5. 安装ZeroTier服务
       - name: Install ZeroTier
@@ -191,17 +155,10 @@ jobs:
       - name: Keep Workflow Running
         shell: pwsh
         run: |
-          Write-Host "✅ 所有服务已配置完成，工作流将持续运行300分钟"
-          Write-Host "📌 可通过SakuraFrp连接RDP，通过ZeroTier固定IP访问内网`n"
           
           # 监控Frp进程（意外停止时重启）
           $endTime = (Get-Date).AddMinutes(300)
           while ((Get-Date) -lt $endTime) {
-            $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
-            if (-not $frpProcess) {
-              Write-Warning "⚠️ SakuraFrp进程已停止，正在重启..."
-              Start-Process -FilePath "start_frp.bat" -NoNewWindow
-            }
             Start-Sleep -Seconds 30  # 每30秒检查一次
           }
           Write-Host "`n⏰ 工作流运行时间已结束，开始清理资源"
@@ -245,12 +202,6 @@ jobs:
         shell: pwsh
         if: always()
         run: |
-          # 停止Frp进程
-          $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
-          if ($frpProcess) {
-            Stop-Process -Id $frpProcess.Id -Force
-            Write-Host "✅ SakuraFrp进程已停止"
-          }
           # 删除临时文件
           Remove-Item -Path "frpc.exe", "start_frp.bat", "frpc.log", "ZeroTierOne.msi" -ErrorAction SilentlyContinue
           Write-Host "✅ 所有临时文件已清理`n"
