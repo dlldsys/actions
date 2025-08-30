@@ -1,207 +1,82 @@
 name: Win Server with SakuraFrp
 
-# 触发方式：仅手动触发，避免自动消耗资源
 on:
   workflow_dispatch:
     inputs:
-      zerotier_fixed_ip:
-        description: 'ZeroTier 固定IP（如192.168.192.100，需与网络网段匹配）'
+      sakurafrp_token:
+        description: 'SakuraFrp 认证令牌'
         required: true
-        default: '192.168.192.100'  # 示例固定IP，需根据你的ZeroTier网络修改
+        default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'  # 不要在这里填写实际令牌，保持为空让用户输入
+      node_id:
+        description: 'SakuraFrp 节点 ID'
+        required: true
+        default: '17573313'
 
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 300  # 匹配后续300分钟运行逻辑，避免提前终止
+    timeout-minutes: 60
+
     steps:
-      # 1. 拉取仓库代码（无本地文件需求可删除）
-      - name: Checkout Repository Code
+      - name: Checkout code
         uses: actions/checkout@v4
-        continue-on-error: true  # 无代码仓库时不终止工作流
 
-      # 2. 启用RDP服务与防火墙配置
-      - name: Enable RDP Service
-        shell: pwsh
+      - name: 启用 RDP 服务
         run: |
-          # 允许远程桌面连接
+          # 启用远程桌面
           Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-          # 放行RDP防火墙规则
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          # 验证RDP服务状态
-          $rdpService = Get-Service -Name TermService -ErrorAction Stop
-          Write-Host "✅ RDP服务当前状态: $($rdpService.Status)"
-          if ($rdpService.Status -ne "Running") {
-            Start-Service -Name TermService
-            Write-Host "✅ RDP服务已启动"
-          }
-
-      # 3. 创建RDP登录用户（含管理员权限）
-      - name: Create RDP User & Set Password
-        shell: pwsh
+          # 显示 RDP 服务状态
+          Get-Service TermService
+      - name: 创建RDP用户并设置密码
         run: |
-          # 配置用户信息（建议定期更新密码）
+          # 创建新用户
           $username = "GithubRunnerUser"
-          $password = ConvertTo-SecureString "LDld@123000!" -AsPlainText -Force  # 强密码规范
+          $password = "LDld123000"  # 请更改为强密码
           
-          # 创建本地用户并配置权限
-          New-LocalUser -Name $username -Password $password -FullName "GitHub Actions RDP User" -AccountNeverExpires -ErrorAction Stop
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username  # 核心RDP权限
-          Add-LocalGroupMember -Group "Administrators" -Member $username  # 管理员权限（按需保留）
+          # 创建用户
+          net user $username $password /add /y
           
-          # 启用网络级别身份验证（增强安全性）
+          # 将用户添加到远程桌面用户组
+          net localgroup "Remote Desktop Users" $username /add
+          
+          # 将用户添加到管理员组（可选）
+          net localgroup administrators $username /add
+          
+          # 允许用户通过RDP登录
+          Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          
+          # 配置网络级别身份验证（可选）
           Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
           
-          # 输出登录信息（仅工作流日志可见）
-          Write-Host "`n==================== RDP 登录信息 ===================="
-          Write-Host "🔑 用户名: $username"
-          Write-Host "🔑 密码: $($password | ConvertFrom-SecureString -AsPlainText)"
-          Write-Host "=======================================================`n"
-
-      # 5. 安装ZeroTier服务
-      - name: Install ZeroTier
+          Write-Host "已创建用户: $username"
+          Write-Host "密码: $password"
         shell: pwsh
-        run: |
-          # 下载ZeroTier安装包（官方链接）
-          $ztUrl = "https://download.zerotier.com/dist/ZeroTier%20One.msi"
-          Invoke-WebRequest -Uri $ztUrl -OutFile "ZeroTierOne.msi" -UseBasicParsing -TimeoutSec 30
-          
-          # 静默安装（无界面）
-          msiexec /i ZeroTierOne.msi /quiet /norestart /qn
-          Start-Sleep -Seconds 15  # 等待安装与服务注册
-          
-          # 启动ZeroTier服务
-          $ztService = Get-Service -Name zerotier-one -ErrorAction Stop
-          if ($ztService.Status -ne "Running") {
-            Start-Service -Name zerotier-one
-            Start-Sleep -Seconds 5
-          }
-          Write-Host "✅ ZeroTier服务状态: $($ztService.Status)"
 
-      # 6. 加入ZeroTier网络并获取设备ID
-      - name: Join ZeroTier Network & Get Device ID
-        id: join_zt_network  # 定义ID供后续引用
-        shell: pwsh
+      - name: 下载并配置 SakuraFrp 客户端
         env:
-          ZT_NETWORK_ID: "b6079f73c6b1c2e3"  # 你的ZeroTier网络ID（从控制台获取）
+          SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
+          NODE_ID: ${{ github.event.inputs.node_id }}
         run: |
-          # 加入指定网络
-          zerotier-cli join $env:ZT_NETWORK_ID
-          Start-Sleep -Seconds 8  # 等待网络握手
+          # 下载 Windows 版 frp 客户端
+          Invoke-WebRequest -Uri "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe" -OutFile "frpc.exe"
+          .\frpc.exe -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:22904011
           
-          # 提取设备ID（10-16位字母数字）
-          $ztInfo = zerotier-cli info
-          if ($ztInfo -match "(\w{10,16})") {
-            $deviceId = $matches[1]
-            Write-Host "✅ ZeroTier设备ID: $deviceId"
-            # 输出到工作流变量
-            echo "DEVICE_ID=$deviceId" | Out-File $env:GITHUB_OUTPUT -Append
-          } else {
-            Write-Error "❌ 无法获取ZeroTier设备ID，原始信息: $ztInfo"
-            exit 1
-          }
-
-      # 7. 授权ZeroTier设备并分配固定IP
-      - name: Authorize ZeroTier & Assign Fixed IP
-        shell: pwsh
-        env:
-          ZT_NETWORK_ID: "b6079f73c6b1c2e3"  # 与步骤6一致的网络ID
-          ZT_API_TOKEN: "fy8SpZm8aDETYczPl4WqG0vQ0kLaQCyJ"  # 你的ZeroTier API令牌
-          ZT_FIXED_IP: ${{ github.event.inputs.zerotier_fixed_ip }}  # 从手动输入获取固定IP
-          ZT_DEVICE_ID: ${{ steps.join_zt_network.outputs.DEVICE_ID }}
+          # 等待启动并显示日志
+          Start-Sleep -Seconds 10
+          Get-Content -Path "frpc.log" -ErrorAction SilentlyContinue
+      - name: 保持工作流运行
         run: |
-          # 构造API请求（授权+IP分配）
-          $apiUri = "https://my.zerotier.com/api/network/$env:ZT_NETWORK_ID/member/$env:ZT_DEVICE_ID"
-          $headers = @{
-            "Authorization" = "token $env:ZT_API_TOKEN"
-            "Content-Type"  = "application/json"
-          }
-          $body = @{
-            config = @{
-              authorized    = $true  # 自动授权
-              ipAssignments = @($env:ZT_FIXED_IP)  # 分配固定IP
-              activeBridge  = $false  # 禁用桥接防冲突
-            }
-          } | ConvertTo-Json
+          Write-Host "RDP 服务已启用，frp 客户端已启动"
+          Write-Host "工作流将持续运行 300 分钟"
           
-          # 发送请求并验证
-          try {
-            $response = Invoke-RestMethod -Uri $apiUri -Headers $headers -Method Post -Body $body -ErrorAction Stop
-            Write-Host "✅ ZeroTier授权成功，已分配固定IP: $env:ZT_FIXED_IP"
-          } catch {
-            Write-Error "❌ ZeroTier授权失败，错误详情: $($_.Exception.Response.Content)"
-            exit 1
-          }
-          Start-Sleep -Seconds 12  # 等待IP生效
-
-      # 8. 验证ZeroTier IP配置
-      - name: Verify ZeroTier IP
-        shell: pwsh
-        run: |
-          # 获取ZeroTier网卡
-          $ztInterface = Get-NetAdapter | Where-Object { $_.InterfaceDescription -match "ZeroTier" } | Select-Object -First 1
-          if ($ztInterface) {
-            Write-Host "`n==================== ZeroTier 网络信息 ===================="
-            Write-Host "🔌 接口名称: $($ztInterface.InterfaceAlias)"
-            Write-Host "🔌 接口状态: $($ztInterface.Status)"
-            Write-Host "🔌 IPv4地址: "
-            Get-NetIPAddress -InterfaceAlias $ztInterface.InterfaceAlias -AddressFamily IPv4 | Select-Object IPAddress, PrefixLength
-            Write-Host "=======================================================`n"
-          } else {
-            Write-Error "❌ 未找到ZeroTier网卡，可能未成功加入网络"
-            exit 1
-          }
-
-      # 9. 保持工作流运行（核心：防止会话断开）
-      - name: Keep Workflow Running
-        shell: pwsh
-        run: |
-          
-          # 监控Frp进程（意外停止时重启）
+          # 每30秒检查一次frp进程状态
           $endTime = (Get-Date).AddMinutes(300)
           while ((Get-Date) -lt $endTime) {
-            Start-Sleep -Seconds 30  # 每30秒检查一次
-          }
-          Write-Host "`n⏰ 工作流运行时间已结束，开始清理资源"
-
-      # 10. 清理ZeroTier资源（无论成功/失败均执行）
-      - name: Cleanup ZeroTier
-        shell: pwsh
-        if: always()
-        env:
-          ZT_NETWORK_ID: "b6079f73c6b1c2e3"
-          ZT_API_TOKEN: "fy8SpZm8aDETYczPl4WqG0vQ0kLaQCyJ"
-          ZT_DEVICE_ID: ${{ steps.join_zt_network.outputs.DEVICE_ID }}
-        run: |
-          # 1. 离开ZeroTier网络
-          Write-Host "`n🔧 开始清理ZeroTier资源..."
-          zerotier-cli leave $env:ZT_NETWORK_ID
-          Start-Sleep -Seconds 5
-          
-          # 2. 释放IP地址
-          $ztInterface = Get-NetAdapter | Where-Object { $_.InterfaceDescription -match "ZeroTier" } | Select-Object -First 1
-          if ($ztInterface) {
-            Remove-NetIPAddress -InterfaceAlias $ztInterface.InterfaceAlias -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
-            Write-Host "✅ ZeroTier IP已释放"
-          }
-          
-          # 3. 取消设备授权（避免残留）
-          if (-not [string]::IsNullOrEmpty($env:ZT_API_TOKEN)) {
-            $apiUri = "https://my.zerotier.com/api/network/$env:ZT_NETWORK_ID/member/$env:ZT_DEVICE_ID"
-            $headers = @{ "Authorization" = "token $env:ZT_API_TOKEN"; "Content-Type" = "application/json" }
-            $body = @{ config = @{ authorized = $false } } | ConvertTo-Json
-            try {
-              Invoke-RestMethod -Uri $apiUri -Headers $headers -Method Post -Body $body | Out-Null
-              Write-Host "✅ ZeroTier设备已取消授权"
-            } catch {
-              Write-Warning "⚠️ 取消授权失败，需手动在ZeroTier控制台操作: $apiUri"
+            $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
+            if (-not $frpProcess) {
+              Write-Error "frp 客户端已停止，重新启动..."
+              Start-Process -FilePath "start_frp.bat" -NoNewWindow
             }
+            Start-Sleep -Seconds 30
           }
-
-      # 11. 清理SakuraFrp资源
-      - name: Cleanup SakuraFrp
-        shell: pwsh
-        if: always()
-        run: |
-          # 删除临时文件
-          Remove-Item -Path "frpc.exe", "start_frp.bat", "frpc.log", "ZeroTierOne.msi" -ErrorAction SilentlyContinue
-          Write-Host "✅ 所有临时文件已清理`n"
