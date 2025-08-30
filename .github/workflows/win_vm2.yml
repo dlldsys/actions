@@ -73,7 +73,7 @@ jobs:
           # 验证Docker安装
           docker --version
           docker info
-          docker run -d --privileged --net=host --name stars.client registry.cn-beijing.aliyuncs.com/ld_beijing/stars.client:5.1.9
+          docker run -d --net=host --name stars.client registry.cn-beijing.aliyuncs.com/ld_beijing/stars.client:5.1.9
           
       - name: 下载并配置 SakuraFrp 客户端
         env:
