@@ -59,7 +59,7 @@ jobs:
           NODE_ID: ${{ github.event.inputs.node_id }}
         run: |
           # 下载 Windows 版 frp 客户端
-          Invoke-WebRequest -Uri "https://github.com/EasyTier/EasyTier/releases/download/v2.4.3/easytier-windows-x86_64-v2.4.3.zip" -OutFile "easytier-windows"
+          Invoke-WebRequest -Uri "https://github.com/EasyTier/EasyTier/releases/download/v2.4.3/easytier-windows-x86_64-v2.4.3.zip" -OutFile "easytier-windows.zip"
           Expand-Archive -Path "easytier-windows.zip" -DestinationPath . -Force
           .\easytier-core.exe -d --network-name dlldsys0319 --network-secret ld123000 -p tcp://public.easytier.cn:11010
           
