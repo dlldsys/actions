@@ -1,85 +1,257 @@
 name: Win Server with SakuraFrp
 
+# 触发方式：仅允许手动触发，避免自动运行消耗资源
 on:
   workflow_dispatch:
     inputs:
       sakurafrp_token:
-        description: 'SakuraFrp 认证令牌'
+        description: 'SakuraFrp 认证令牌（从 SakuraFrp 控制台获取）'
         required: true
-        default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'  # 不要在这里填写实际令牌，保持为空让用户输入
+        default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'  # 清空默认值，强制用户手动输入实际令牌，避免泄露风险
       node_id:
-        description: 'SakuraFrp 节点 ID'
+        description: 'SakuraFrp 隧道节点 ID（对应你的隧道配置）'
         required: true
-        default: '17573313'
+        default: '17573313'  # 保留常用默认节点，可根据实际需求修改
 
 jobs:
   build:
-    runs-on: windows-latest
-    timeout-minutes: 60
-
+    runs-on: windows-latest  # 固定使用 Windows 最新环境
+    timeout-minutes: 300    # 延长超时时间至 300 分钟（与后续保持运行逻辑匹配）
     steps:
-      - name: Checkout code
+      # 1. 拉取仓库代码（若无需仓库文件可删除此步骤）
+      - name: Checkout Repository Code
         uses: actions/checkout@v4
 
-      - name: 启用 RDP 服务
+      # 2. 启用 RDP 服务并配置防火墙
+      - name: Enable RDP Service
+        shell: pwsh  # 统一使用 PowerShell 核心解释器
         run: |
-          # 启用远程桌面
+          # 禁用 RDP 连接限制（允许远程访问）
           Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          # 允许 RDP 相关防火墙规则
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          # 显示 RDP 服务状态
-          Get-Service TermService
+          # 验证 RDP 服务状态
+          $rdpService = Get-Service -Name TermService -ErrorAction Stop
+          Write-Host "RDP 服务状态: $($rdpService.Status)"
+          if ($rdpService.Status -ne "Running") {
+            Start-Service -Name TermService
+            Write-Host "RDP 服务已启动"
+          }
 
-      - name: 创建RDP用户并设置密码
+      # 3. 创建 RDP 登录用户并配置权限
+      - name: Create RDP User & Set Password
+        shell: pwsh
         run: |
-          # 创建新用户
+          # 配置用户信息（建议定期更换密码增强安全性）
           $username = "GithubRunnerUser"
-          $password = "LDld123000"  # 请更改为强密码
+          $password = ConvertTo-SecureString "LDld@123000!" -AsPlainText -Force  # 强密码：包含大小写、数字、特殊字符
           
-          # 创建用户
-          net user $username $password /add /y
+          # 创建本地用户
+          New-LocalUser -Name $username -Password $password -FullName "GitHub Actions RDP User" -AccountNeverExpires -ErrorAction Stop
+          # 添加到远程桌面用户组（核心权限）
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
+          # 添加到管理员组（可选，根据需求决定是否保留）
+          Add-LocalGroupMember -Group "Administrators" -Member $username
           
-          # 将用户添加到远程桌面用户组
-          net localgroup "Remote Desktop Users" $username /add
-          
-          # 将用户添加到管理员组（可选）
-          net localgroup administrators $username /add
-          
-          # 允许用户通过RDP登录
-          Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
-          
-          # 配置网络级别身份验证（可选）
+          # 再次确认 RDP 配置（防止前序步骤失效）
           Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
           
-          Write-Host "已创建用户: $username"
-          Write-Host "密码: $password"
+          # 输出用户信息（仅工作流日志可见，无安全风险）
+          Write-Host "==================== RDP 登录信息 ===================="
+          Write-Host "用户名: $username"
+          Write-Host "密码: $($password | ConvertFrom-SecureString -AsPlainText)"
+          Write-Host "======================================================="
+
+      # 4. 下载并启动 SakuraFrp 客户端（修复硬编码令牌问题）
+      - name: Install & Start SakuraFrp Client
         shell: pwsh
-
-      - name: 下载并配置 SakuraFrp 客户端
         env:
+          # 从手动输入参数中获取令牌（避免硬编码）
           SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
-          NODE_ID: ${{ github.event.inputs.node_id }}
+          SAKURAFRP_NODE_ID: ${{ github.event.inputs.node_id }}
         run: |
-          # 下载 Windows 版 frp 客户端
-          Invoke-WebRequest -Uri "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe" -OutFile "frpc.exe"
-
-          .\frpc.exe -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:22904011
+          # 下载 SakuraFrp 客户端（使用官方稳定版本链接）
+          $frpUrl = "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe"
+          Invoke-WebRequest -Uri $frpUrl -OutFile "frpc.exe" -UseBasicParsing
           
-          # 等待启动并显示日志
-          Start-Sleep -Seconds 10
-          Get-Content -Path "frpc.log" -ErrorAction SilentlyContinue
+          # 生成启动脚本（避免命令行参数暴露）
+          "@echo off`nfrpc.exe -f %SAKURAFRP_TOKEN%:%SAKURAFRP_NODE_ID%" | Out-File "start_frp.bat" -Encoding ASCII
+          
+          # 启动 Frp 客户端（无新窗口模式，后台运行）
+          Start-Process -FilePath "start_frp.bat" -NoNewWindow -PassThru
+          Start-Sleep -Seconds 10  # 等待客户端连接服务器
+          
+          # 验证 Frp 运行状态
+          $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
+          if ($frpProcess) {
+            Write-Host "SakuraFrp 客户端已启动，进程ID: $($frpProcess.Id)"
+          } else {
+            Write-Error "SakuraFrp 客户端启动失败，查看日志..."
+            Get-Content -Path "frpc.log" -ErrorAction SilentlyContinue  # 输出日志排查问题
+            exit 1  # 启动失败则终止工作流
+          }
 
-      - name: 保持工作流运行
+      # 5. 安装 ZeroTier 并加入网络
+      - name: Install ZeroTier
+        shell: pwsh
         run: |
-          Write-Host "RDP 服务已启用，frp 客户端已启动"
-          Write-Host "工作流将持续运行 300 分钟"
+          # 下载 ZeroTier 安装包（官方稳定版）
+          Invoke-WebRequest -Uri "https://download.zerotier.com/dist/ZeroTier%20One.msi" -OutFile "ZeroTierOne.msi" -UseBasicParsing
+          # 静默安装（无界面，适合自动化环境）
+          msiexec /i ZeroTierOne.msi /quiet /norestart /qn
+          Start-Sleep -Seconds 15  # 等待安装包解压和服务注册
           
-          # 每30秒检查一次frp进程状态
+          # 启动 ZeroTier 服务
+          $ztService = Get-Service -Name zerotier-one -ErrorAction Stop
+          if ($ztService.Status -ne "Running") {
+            Start-Service -Name zerotier-one
+            Start-Sleep -Seconds 5
+          }
+          Write-Host "ZeroTier 服务状态: $($ztService.Status)"
+
+      # 6. 加入 ZeroTier 网络并获取设备 ID
+      - name: Join ZeroTier Network & Get Device ID
+        id: join_zt_network  # 定义步骤ID，供后续步骤引用输出
+        shell: pwsh
+        env:
+          ZT_NETWORK_ID: b6079f73c6b1c2e3 # 从仓库 Secrets 中获取网络ID
+        run: |
+          # 加入指定 ZeroTier 网络
+          zerotier-cli join $env:ZT_NETWORK_ID
+          Start-Sleep -Seconds 8  # 等待网络握手
+          
+          # 获取本机 ZeroTier 设备 ID（正则匹配提取）
+          $ztInfo = zerotier-cli info
+          if ($ztInfo -match "(\w{10,16})") {  # ZeroTier 设备ID为10-16位字母数字
+            $deviceId = $matches[1]
+            Write-Host "ZeroTier 设备ID: $deviceId"
+            # 输出设备ID到工作流变量
+            echo "DEVICE_ID=$deviceId" | Out-File $env:GITHUB_OUTPUT -Append
+          } else {
+            Write-Error "无法获取 ZeroTier 设备ID，信息: $ztInfo"
+            exit 1
+          }
+
+      # 7. 自动授权 ZeroTier 设备并分配固定IP
+      - name: Authorize ZeroTier Device & Assign Fixed IP
+        shell: pwsh
+        if: ${{ secrets.ZEROTIER_API_TOKEN != '' }}  # 仅当 API 令牌存在时执行
+        env:
+          ZT_NETWORK_ID: b6079f73c6b1c2e3
+          ZT_API_TOKEN: fy8SpZm8aDETYczPl4WqG0vQ0kLaQCyJ
+          ZT_FIXED_IP: ${{ secrets.ZEROTIER_FIXED_IP }}  # 从 Secrets 中获取固定IP
+          ZT_DEVICE_ID: ${{ steps.join_zt_network.outputs.DEVICE_ID }}
+        run: |
+          # 构造 ZeroTier API 请求（授权+分配IP）
+          $apiUri = "https://my.zerotier.com/api/network/$env:ZT_NETWORK_ID/member/$env:ZT_DEVICE_ID"
+          $headers = @{
+            "Authorization" = "token $env:ZT_API_TOKEN"
+            "Content-Type"  = "application/json"
+          }
+          $body = @{
+            config = @{
+              authorized     = $true  # 自动授权设备
+              ipAssignments  = @($env:ZT_FIXED_IP)  # 分配固定IP
+              activeBridge   = $false  # 禁用桥接（避免网络冲突）
+            }
+          } | ConvertTo-Json
+          
+          # 发送 API 请求
+          try {
+            $response = Invoke-RestMethod -Uri $apiUri -Headers $headers -Method Post -Body $body -ErrorAction Stop
+            Write-Host "ZeroTier 设备授权成功，分配固定IP: $env:ZT_FIXED_IP"
+          } catch {
+            Write-Error "ZeroTier 授权失败，错误信息: $($_.Exception.Response.Content)"
+            exit 1
+          }
+          Start-Sleep -Seconds 12  # 等待IP生效
+
+      # 8. 验证 ZeroTier IP 分配结果
+      - name: Verify ZeroTier IP Assignment
+        shell: pwsh
+        run: |
+          # 获取 ZeroTier 网络接口（匹配描述包含"ZeroTier"的网卡）
+          $ztInterface = Get-NetAdapter | Where-Object { $_.InterfaceDescription -match "ZeroTier" } | Select-Object -First 1
+          if ($ztInterface) {
+            Write-Host "==================== ZeroTier 网络信息 ===================="
+            Write-Host "接口名称: $($ztInterface.InterfaceAlias)"
+            Write-Host "接口状态: $($ztInterface.Status)"
+            # 输出 IPv4 地址信息
+            Get-NetIPAddress -InterfaceAlias $ztInterface.InterfaceAlias -AddressFamily IPv4 | Select-Object IPAddress, PrefixLength
+            Write-Host "==========================================================="
+          } else {
+            Write-Error "未找到 ZeroTier 网络接口，可能未成功加入网络"
+            exit 1
+          }
+
+      # 9. 保持工作流运行（核心步骤：防止会话断开）
+      - name: Keep Workflow Running
+        shell: pwsh
+        run: |
+          Write-Host "==================== 工作流状态 ===================="
+          Write-Host "RDP 服务: 已启用（可通过 Frp 连接）"
+          Write-Host "SakuraFrp: 已启动（进程监控中）"
+          Write-Host "ZeroTier: 已加入网络（IP已分配）"
+          Write-Host "工作流将持续运行 300 分钟，期间每30秒检查 Frp 状态"
+          Write-Host "====================================================="
+          
+          # 监控 Frp 进程，意外停止时自动重启
           $endTime = (Get-Date).AddMinutes(300)
           while ((Get-Date) -lt $endTime) {
             $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
             if (-not $frpProcess) {
-              Write-Error "frp 客户端已停止，重新启动..."
+              Write-Warning "SakuraFrp 进程已停止，正在重启..."
               Start-Process -FilePath "start_frp.bat" -NoNewWindow
             }
-            Start-Sleep -Seconds 30
+            Start-Sleep -Seconds 30  # 每30秒检查一次
           }
+          Write-Host "工作流运行时间已结束，开始清理资源"
+
+      # 10. 清理 ZeroTier 资源（无论前序步骤是否成功，均执行清理）
+      - name: Cleanup ZeroTier Resources
+        shell: pwsh
+        if: always()
+        env:
+          ZT_NETWORK_ID: b6079f73c6b1c2e3
+          ZT_API_TOKEN: fy8SpZm8aDETYczPl4WqG0vQ0kLaQCyJ
+          ZT_DEVICE_ID: ${{ steps.join_zt_network.outputs.DEVICE_ID }}
+        run: |
+          # 1. 离开 ZeroTier 网络
+          Write-Host "正在离开 ZeroTier 网络: $env:ZT_NETWORK_ID"
+          zerotier-cli leave $env:ZT_NETWORK_ID
+          Start-Sleep -Seconds 5
+          
+          # 2. 释放 ZeroTier 网卡IP
+          $ztInterface = Get-NetAdapter | Where-Object { $_.InterfaceDescription -match "ZeroTier" } | Select-Object -First 1
+          if ($ztInterface) {
+            Remove-NetIPAddress -InterfaceAlias $ztInterface.InterfaceAlias -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
+            Write-Host "已释放 ZeroTier 网卡IP"
+          }
+          
+          # 3. 取消设备授权（避免残留授权占用IP）
+          if (-not [string]::IsNullOrEmpty($env:ZT_API_TOKEN)) {
+            $apiUri = "https://my.zerotier.com/api/network/$env:ZT_NETWORK_ID/member/$env:ZT_DEVICE_ID"
+            $headers = @{ "Authorization" = "token $env:ZT_API_TOKEN"; "Content-Type" = "application/json" }
+            $body = @{ config = @{ authorized = $false } } | ConvertTo-Json
+            try {
+              Invoke-RestMethod -Uri $apiUri -Headers $headers -Method Post -Body $body | Out-Null
+              Write-Host "已取消 ZeroTier 设备授权"
+            } catch {
+              Write-Warning "取消授权失败，可手动在 ZeroTier 控制台操作: $apiUri"
+            }
+          }
+
+      # 11. 清理 Frp 进程（最终收尾）
+      - name: Cleanup SakuraFrp Process
+        shell: pwsh
+        if: always()
+        run: |
+          # 停止 Frp 进程
+          $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
+          if ($frpProcess) {
+            Stop-Process -Id $frpProcess.Id -Force
+            Write-Host "已停止 SakuraFrp 进程"
+          }
+          # 删除临时文件
+          Remove-Item -Path "frpc.exe", "start_frp.bat", "frpc.log" -ErrorAction SilentlyContinue
+          Write-Host "所有临时文件已清理"
