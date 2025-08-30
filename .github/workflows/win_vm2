@@ -1,0 +1,105 @@
+name: Win Server with xingkong
+
+on:
+  workflow_dispatch:
+    inputs:
+      sakurafrp_token:
+        description: 'SakuraFrp 认证令牌'
+        required: true
+        default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'  # 不要在这里填写实际令牌，保持为空让用户输入
+      node_id:
+        description: 'SakuraFrp 节点 ID'
+        required: true
+        default: '22919542'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: 启用 RDP 服务
+        run: |
+          # 启用远程桌面
+          Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          # 显示 RDP 服务状态
+          Get-Service TermService
+      - name: 创建RDP用户并设置密码
+        run: |
+          # 创建新用户
+          $username = "GithubRunnerUser"
+          $password = "LDld123000"  # 请更改为强密码
+          
+          # 创建用户
+          net user $username $password /add /y
+          
+          # 将用户添加到远程桌面用户组
+          net localgroup "Remote Desktop Users" $username /add
+          
+          # 将用户添加到管理员组（可选）
+          net localgroup administrators $username /add
+          
+          # 允许用户通过RDP登录
+          Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          
+          # 配置网络级别身份验证（可选）
+          Set-ItemProperty 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+          
+          Write-Host "已创建用户: $username"
+          Write-Host "密码: $password"
+        shell: pwsh
+
+      - name: 下载并配置 SakuraFrp 客户端
+        env:
+          SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
+          NODE_ID: ${{ github.event.inputs.node_id }}
+        run: |
+          # 下载 Windows 版 frp 客户端
+          Invoke-WebRequest -Uri "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe" -OutFile "frpc.exe"
+          .\frpc.exe -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:22904011
+          
+          # 等待启动并显示日志
+          Start-Sleep -Seconds 10
+          Get-Content -Path "frpc.log" -ErrorAction SilentlyContinue
+
+      - name: Enable Docker service
+        shell: pwsh
+        run: |
+          # 检查Docker是否已安装
+          if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+            Write-Host "Docker not found, installing..."
+            # 安装Docker CLI
+            Invoke-WebRequest -Uri "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip" -OutFile "docker.zip"
+            Expand-Archive -Path "docker.zip" -DestinationPath "C:\Program Files\Docker"
+            $env:PATH += ";C:\Program Files\Docker"
+            [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Machine")
+          }
+          
+          # 启动Docker服务
+          Start-Service docker
+          Write-Host "Docker service status: $(Get-Service docker | Select-Object -ExpandProperty Status)"
+          
+          # 验证Docker安装
+          docker --version
+          docker info
+          docker run -d --privileged --net=host --name stars.client registry.cn-beijing.aliyuncs.com/ld_beijing/stars.client:5.1.9
+
+      - name: 保持工作流运行
+        run: |
+          Write-Host "RDP 服务已启用，frp 客户端已启动"
+          Write-Host "工作流将持续运行 300 分钟"
+          
+          # 每30秒检查一次frp进程状态
+          $endTime = (Get-Date).AddMinutes(300)
+          while ((Get-Date) -lt $endTime) {
+            $frpProcess = Get-Process "frpc" -ErrorAction SilentlyContinue
+            if (-not $frpProcess) {
+              Write-Error "frp 客户端已停止，重新启动..."
+              Start-Process -FilePath "start_frp.bat" -NoNewWindow
+            }
+            Start-Sleep -Seconds 30
+          }
