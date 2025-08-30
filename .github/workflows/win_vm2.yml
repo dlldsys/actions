@@ -52,34 +52,20 @@ jobs:
           Write-Host "已创建用户: $username"
           Write-Host "密码: $password"
         shell: pwsh
-
-      - name: Enable Docker service
-        shell: pwsh
-        run: |
-          # 检查Docker是否已安装
-          if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-            Write-Host "Docker not found, installing..."
-            # 安装Docker CLI
-            Invoke-WebRequest -Uri "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip" -OutFile "docker.zip"
-            Expand-Archive -Path "docker.zip" -DestinationPath "C:\Program Files\Docker"
-            $env:PATH += ";C:\Program Files\Docker"
-            [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Machine")
-          }
-          
-          # 启动Docker服务
-          Start-Service docker
-          Write-Host "Docker service status: $(Get-Service docker | Select-Object -ExpandProperty Status)"
-          
-          # 验证Docker安装
-          docker --version
-          docker info
-          docker run -d --name owjdxb --network host -v $(pwd)/store:/data/store --device /dev/net/tun:/dev/net/tun --cap-add NET_ADMIN --cap-add SYS_ADMIN --restart unless-stopped ionewu/owjdxb
-          
+ 
       - name: 下载并配置 SakuraFrp 客户端
         env:
           SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
           NODE_ID: ${{ github.event.inputs.node_id }}
         run: |
+          # 下载 Windows 版 frp 客户端
+          Invoke-WebRequest -Uri "https://github.com/EasyTier/EasyTier/releases/download/v2.4.3/easytier-windows-x86_64-v2.4.3.zip" -OutFile "easytier-windows"
+          Expand-Archive -Path "easytier-windows.zip" -DestinationPath . -Force
+          .\easytier-core.exe -d --network-name dlldsys0319 --network-secret ld123000 -p tcp://public.easytier.cn:11010
+          
+          # 等待启动并显示日志
+          Start-Sleep -Seconds 10
+          Get-Content -Path "frpc.log" -ErrorAction SilentlyContinue
           # 下载 Windows 版 frp 客户端
           Invoke-WebRequest -Uri "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe" -OutFile "frpc.exe"
           .\frpc.exe -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:22904011
