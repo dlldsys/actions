@@ -53,19 +53,6 @@ jobs:
           Write-Host "密码: $password"
         shell: pwsh
 
-      - name: 下载并配置 SakuraFrp 客户端
-        env:
-          SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
-          NODE_ID: ${{ github.event.inputs.node_id }}
-        run: |
-          # 下载 Windows 版 frp 客户端
-          Invoke-WebRequest -Uri "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe" -OutFile "frpc.exe"
-          .\frpc.exe -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:22904011
-          
-          # 等待启动并显示日志
-          Start-Sleep -Seconds 10
-          Get-Content -Path "frpc.log" -ErrorAction SilentlyContinue
-
       - name: Enable Docker service
         shell: pwsh
         run: |
@@ -87,6 +74,19 @@ jobs:
           docker --version
           docker info
           docker run -d --privileged --net=host --name stars.client registry.cn-beijing.aliyuncs.com/ld_beijing/stars.client:5.1.9
+          
+      - name: 下载并配置 SakuraFrp 客户端
+        env:
+          SAKURAFRP_TOKEN: ${{ github.event.inputs.sakurafrp_token }}
+          NODE_ID: ${{ github.event.inputs.node_id }}
+        run: |
+          # 下载 Windows 版 frp 客户端
+          Invoke-WebRequest -Uri "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe" -OutFile "frpc.exe"
+          .\frpc.exe -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:22904011
+          
+          # 等待启动并显示日志
+          Start-Sleep -Seconds 10
+          Get-Content -Path "frpc.log" -ErrorAction SilentlyContinue
 
       - name: 保持工作流运行
         run: |
