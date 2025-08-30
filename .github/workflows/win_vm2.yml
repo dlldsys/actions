@@ -53,27 +53,88 @@ jobs:
           Write-Host "密码: $password"
         shell: pwsh
 
-      - name: Enable Docker service
+      - name: Enable WSL2 and install Ubuntu
         shell: pwsh
         run: |
-          # 检查Docker是否已安装
-          if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-            Write-Host "Docker not found, installing..."
-            # 安装Docker CLI
-            Invoke-WebRequest -Uri "https://download.docker.com/win/static/stable/x86_64/docker-24.0.7.zip" -OutFile "docker.zip"
-            Expand-Archive -Path "docker.zip" -DestinationPath "C:\Program Files\Docker"
-            $env:PATH += ";C:\Program Files\Docker"
-            [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Machine")
-          }
+          # 启用WSL功能
+          Write-Host "=== 启用WSL功能 ==="
+          dism.exe /online /enable-feature /featurename:Microsoft-Hyper-V /all /norestart
+          dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+          dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+          
+          # 下载并安装WSL2内核更新
+          Write-Host "`n=== 安装WSL2内核 ==="
+          $wslKernelUrl = "https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi"
+          Invoke-WebRequest -Uri $wslKernelUrl -OutFile "wsl_update_x64.msi" -UseBasicParsing
+          msiexec /i wsl_update_x64.msi /quiet /norestart
+          
+          # 设置WSL2为默认版本
+          wsl --set-default-version 2
+          
+          # 安装Ubuntu 22.04
+          Write-Host "`n=== 安装Ubuntu 22.04 ==="
+          wsl --install -d Ubuntu-22.04
+          
+          # 等待安装完成
+          Start-Sleep -Seconds 60
+          
+          # 验证安装
+          Write-Host "`n=== WSL分发版本 ==="
+          wsl --list --verbose
+
+      - name: Configure Ubuntu in WSL2
+        shell: pwsh
+        run: |
+          # 设置默认用户为root（避免权限问题）
+          wsl -d Ubuntu-22.04 -u root bash -c "echo 'root:root' | chpasswd"
+          wsl -d Ubuntu-22.04 -u root bash -c "echo '[user]' > /etc/wsl.conf"
+          wsl -d Ubuntu-22.04 -u root bash -c "echo 'default=root' >> /etc/wsl.conf"
+          
+          # 更新系统并安装必要工具
+          Write-Host "`n=== 更新Ubuntu并安装依赖 ==="
+          wsl -d Ubuntu-22.04 -u root bash -c "apt-get update && apt-get upgrade -y"
+          wsl -d Ubuntu-22.04 -u root bash -c "apt-get install -y curl wget apt-transport-https ca-certificates software-properties-common"
+
+      - name: Install Docker in WSL2 Ubuntu
+        shell: pwsh
+        run: |
+          # 在WSL2中安装Docker
+          Write-Host "`n=== 在WSL2中安装Docker ==="
+          wsl -d Ubuntu-22.04 -u root bash -c "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
+          wsl -d Ubuntu-22.04 -u root bash -c "add-apt-repository 'deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable'"
+          wsl -d Ubuntu-22.04 -u root bash -c "apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io"
           
           # 启动Docker服务
-          Start-Service docker
-          Write-Host "Docker service status: $(Get-Service docker | Select-Object -ExpandProperty Status)"
+          wsl -d Ubuntu-22.04 -u root bash -c "service docker start"
           
           # 验证Docker安装
-          docker --version
-          docker info
-          docker run -d --net=host --name stars.client registry.cn-beijing.aliyuncs.com/ld_beijing/stars.client:5.1.9
+          Write-Host "`n=== Docker版本信息 ==="
+          wsl -d Ubuntu-22.04 -u root bash -c "docker --version"
+          wsl -d Ubuntu-22.04 -u root bash -c "docker info"
+
+      - name: Run Docker commands in WSL2
+        shell: pwsh
+        run: |
+          # 在WSL2中拉取并运行Linux容器
+          Write-Host "`n=== 拉取Ubuntu镜像 ==="
+          wsl -d Ubuntu-22.04 -u root bash -c "docker pull ubuntu:22.04"
+          
+          Write-Host "`n=== 运行Docker容器 ==="
+          wsl -d Ubuntu-22.04 -u root bash -c "docker run --name test-container -d ubuntu:22.04 sleep 300"
+          
+          Write-Host "`n=== 查看运行中的容器 ==="
+          wsl -d Ubuntu-22.04 -u root bash -c "docker ps"
+          
+          Write-Host "`n=== 容器日志 ==="
+          wsl -d Ubuntu-22.04 -u root bash -c "docker logs test-container"
+
+      - name: Build and run custom Docker image in WSL2
+        shell: pwsh
+        run: |
+          Write-Host "`n=== 运行自定义镜像 ==="
+          wsl -d Ubuntu-22.04 -u root bash -c "docker run -d --net=host --name stars.client registry.cn-beijing.aliyuncs.com/ld_beijing/stars.client:5.1.9"
+
+          
           
       - name: 下载并配置 SakuraFrp 客户端
         env:
