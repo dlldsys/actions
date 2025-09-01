@@ -1,0 +1,57 @@
+name: 网站速度测试
+on:
+  schedule:
+    # 每天运行一次，可根据需要调整
+    - cron: '0 0 * * *'
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  speed-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查代码仓库
+        uses: actions/checkout@v4
+
+      - name: 安装speedtest工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: 测试网站响应时间
+        run: |
+          # 要测试的网址列表
+          URLs=(
+            "https://github.com"
+            "https://google.com"
+            "https://baidu.com"
+          )
+          
+          # 输出测试结果标题
+          echo "## 网站速度测试结果 - $(date)" >> speed-test-results.md
+          echo "" >> speed-test-results.md
+          echo "| 网址 | 状态码 | 响应时间(ms) | 测试时间 |" >> speed-test-results.md
+          echo "|------|--------|--------------|----------|" >> speed-test-results.md
+          
+          # 循环测试每个网址
+          for url in "${URLs[@]}"; do
+            # 使用curl测试响应时间和状态码
+            result=$(curl -s -w "%{http_code}|%{time_total}" -o /dev/null "$url")
+            status_code=$(echo "$result" | cut -d'|' -f1)
+            response_time=$(echo "$result" | cut -d'|' -f2)
+            # 转换为毫秒并保留两位小数
+            response_time_ms=$(echo "scale=2; $response_time * 1000" | bc)
+            test_time=$(date +"%Y-%m-%d %H:%M:%S")
+            
+            # 输出到表格
+            echo "| $url | $status_code | $response_time_ms | $test_time |" >> speed-test-results.md
+            # 同时在控制台输出
+            echo "测试 $url: 状态码 $status_code, 响应时间 $response_time_ms ms"
+          done
+
+      - name: 保存测试结果
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: '更新网站速度测试结果'
+          file_pattern: 'speed-test-results.md'
+    
