@@ -1,7 +1,7 @@
 name: AWS宁夏区域网络性能测试
 on:
   schedule:
-    - cron: '0 12 * * *'  # 每天UTC 12点运行(北京时间20点)
+    - cron: '0 * * * *'  
   workflow_dispatch:  # 允许手动触发
 
   
