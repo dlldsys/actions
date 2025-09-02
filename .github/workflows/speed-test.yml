@@ -1,58 +1,99 @@
-name: 网站速度测试
+<name: AWS宁夏区域网络性能测试
 on:
   schedule:
-    # 每天运行一次，可根据需要调整
-    - cron: '0 0 * * *'
-  # 允许手动触发
-  workflow_dispatch:
+    - cron: '0 12 * * *'  # 每天UTC 12点运行(北京时间20点)
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
-  speed-test:
+  network-test:
     runs-on: ubuntu-latest
     steps:
       - name: 检查代码仓库
         uses: actions/checkout@v4
 
-      - name: 安装speedtest工具
+      - name: 安装测试工具
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl jq
+          sudo apt-get install -y curl traceroute mtr speedtest-cli
 
-      - name: 测试网站响应时间
+      - name: 获取AWS宁夏区域IP范围
         run: |
-          # 要测试的网址列表
-          URLs=(
-            "https://github.com"
-            "https://google.com"
-            "https://baidu.com"
-            "https://aws.amazon.com"
-          )
+          # 获取AWS宁夏区域(cn-northwest-1)的IP范围
+          echo "获取AWS宁夏区域IP范围..."
+          curl -s https://ip-ranges.amazonaws.com/ip-ranges.json | jq -r '.prefixes[] | select(.region == "cn-northwest-1" and .service == "S3") | .ip_prefix' > aws-nx-ip-ranges.txt
           
-          # 输出测试结果标题
-          echo "## 网站速度测试结果 - $(date)" >> speed-test-results.md
-          echo "" >> speed-test-results.md
-          echo "| 网址 | 状态码 | 响应时间(ms) | 测试时间 |" >> speed-test-results.md
-          echo "|------|--------|--------------|----------|" >> speed-test-results.md
+          # 显示获取到的IP范围
+          echo "AWS宁夏区域S3 IP范围:"
+          cat aws-nx-ip-ranges.txt
           
-          # 循环测试每个网址
-          for url in "${URLs[@]}"; do
-            # 使用curl测试响应时间和状态码
-            result=$(curl -s -w "%{http_code}|%{time_total}" -o /dev/null "$url")
-            status_code=$(echo "$result" | cut -d'|' -f1)
-            response_time=$(echo "$result" | cut -d'|' -f2)
-            # 转换为毫秒并保留两位小数
-            response_time_ms=$(echo "scale=2; $response_time * 1000" | bc)
-            test_time=$(date +"%Y-%m-%d %H:%M:%S")
-            
-            # 输出到表格
-            echo "| $url | $status_code | $response_time_ms | $test_time |" >> speed-test-results.md
-            # 同时在控制台输出
-            echo "测试 $url: 状态码 $status_code, 响应时间 $response_time_ms ms"
-          done
+          # 取第一个IP范围的第一个IP作为测试目标
+          FIRST_IP=$(head -n 1 aws-nx-ip-ranges.txt | cut -d'/' -f1)
+          echo "测试目标IP: $FIRST_IP"
+          echo "TARGET_IP=$FIRST_IP" >> $GITHUB_ENV
 
-      - name: 保存测试结果
+      - name: 网络延迟测试
+        run: |
+          # Ping测试
+          echo "开始Ping测试..."
+          ping -c 10 $TARGET_IP > ping-results.txt
+          
+          # 追踪路由
+          echo "开始路由追踪..."
+          traceroute $TARGET_IP > traceroute-results.txt
+          
+          # MTR测试(结合ping和traceroute的工具)
+          echo "开始MTR测试..."
+          mtr --report --report-cycles 10 $TARGET_IP > mtr-results.txt
+
+      - name: 带宽测试
+        run: |
+          # 使用speedtest-cli测试到就近服务器的带宽
+          echo "开始带宽测试..."
+          speedtest-cli --simple > bandwidth-results.txt
+          
+          # 测试到AWS宁夏区域的HTTP连接速度
+          echo "测试到AWS宁夏区域的HTTP连接..."
+          # 使用宁夏区域的S3终端节点进行测试
+          curl -o /dev/null -s -w "HTTP状态码: %{http_code}\n响应时间: %{time_total}秒\n下载速度: %{speed_download}字节/秒\n" https://s3.cn-northwest-1.amazonaws.com.cn > http-test-results.txt
+
+      - name: 生成测试报告
+        run: |
+          # 创建报告文件
+          echo "# AWS宁夏区域网络性能测试报告" > aws-nx-test-report.md
+          echo "## 测试时间: $(date +%Y-%m-%d\ %H:%M:%S)" >> aws-nx-test-report.md
+          echo "## 测试环境: GitHub Actions Ubuntu Latest (${{ runner.os }})" >> aws-nx-test-report.md
+          echo "" >> aws-nx-test-report.md
+          
+          # 添加Ping测试结果
+          echo "### Ping测试结果" >> aws-nx-test-report.md
+          echo "目标IP: $TARGET_IP" >> aws-nx-test-report.md
+          echo "\`\`\`" >> aws-nx-test-report.md
+          cat ping-results.txt >> aws-nx-test-report.md
+          echo "\`\`\`" >> aws-nx-test-report.md
+          echo "" >> aws-nx-test-report.md
+          
+          # 添加带宽测试结果
+          echo "### 带宽测试结果" >> aws-nx-test-report.md
+          echo "\`\`\`" >> aws-nx-test-report.md
+          cat bandwidth-results.txt >> aws-nx-test-report.md
+          echo "\`\`\`" >> aws-nx-test-report.md
+          echo "" >> aws-nx-test-report.md
+          
+          # 添加HTTP连接测试结果
+          echo "### HTTP连接测试结果" >> aws-nx-test-report.md
+          echo "\`\`\`" >> aws-nx-test-report.md
+          cat http-test-results.txt >> aws-nx-test-report.md
+          echo "\`\`\`" >> aws-nx-test-report.md
+          echo "" >> aws-nx-test-report.md
+          
+          # 添加路由追踪结果
+          echo "### 路由追踪结果" >> aws-nx-test-report.md
+          echo "\`\`\`" >> aws-nx-test-report.md
+          cat traceroute-results.txt >> aws-nx-test-report.md
+          echo "\`\`\`" >> aws-nx-test-report.md
+
+      - name: 保存测试报告
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: '更新网站速度测试结果'
-          file_pattern: 'speed-test-results.md'
-    
+          commit_message: '更新AWS宁夏区域网络性能测试报告'
+          file_pattern: 'aws-nx-test-report.md'
