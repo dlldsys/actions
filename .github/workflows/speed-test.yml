@@ -4,6 +4,11 @@ on:
     - cron: '0 12 * * *'  # 每天UTC 12点运行(北京时间20点)
   workflow_dispatch:  # 允许手动触发
 
+  
+# 添加权限配置
+permissions:
+  contents: write  # 允许推送代码到仓库
+  
 jobs:
   network-test:
     runs-on: ubuntu-latest
