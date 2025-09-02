@@ -63,12 +63,6 @@ jobs:
           cat http-test-results.txt >> aws-nx-test-report.md
           echo "\`\`\`" >> aws-nx-test-report.md
           echo "" >> aws-nx-test-report.md
-          
-          # 添加路由追踪结果
-          echo "### 路由追踪结果" >> aws-nx-test-report.md
-          echo "\`\`\`" >> aws-nx-test-report.md
-          cat traceroute-results.txt >> aws-nx-test-report.md
-          echo "\`\`\`" >> aws-nx-test-report.md
 
       - name: 保存测试报告
         uses: stefanzweifel/git-auto-commit-action@v5
