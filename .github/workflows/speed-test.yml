@@ -50,14 +50,6 @@ jobs:
           echo "## 测试环境: GitHub Actions Ubuntu Latest (${{ runner.os }})" >> aws-nx-test-report.md
           echo "" >> aws-nx-test-report.md
           
-          # 添加Ping测试结果
-          echo "### Ping测试结果" >> aws-nx-test-report.md
-          echo "目标IP: $TARGET_IP" >> aws-nx-test-report.md
-          echo "\`\`\`" >> aws-nx-test-report.md
-          cat ping-results.txt >> aws-nx-test-report.md
-          echo "\`\`\`" >> aws-nx-test-report.md
-          echo "" >> aws-nx-test-report.md
-          
           # 添加带宽测试结果
           echo "### 带宽测试结果" >> aws-nx-test-report.md
           echo "\`\`\`" >> aws-nx-test-report.md
