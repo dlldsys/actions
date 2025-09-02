@@ -31,20 +31,6 @@ jobs:
           echo "测试目标IP: $FIRST_IP"
           echo "TARGET_IP=$FIRST_IP" >> $GITHUB_ENV
 
-      - name: 网络延迟测试
-        run: |
-          # Ping测试
-          echo "开始Ping测试..."
-          ping -c 10 $TARGET_IP > ping-results.txt
-          
-          # 追踪路由
-          echo "开始路由追踪..."
-          traceroute $TARGET_IP > traceroute-results.txt
-          
-          # MTR测试(结合ping和traceroute的工具)
-          echo "开始MTR测试..."
-          mtr --report --report-cycles 10 $TARGET_IP > mtr-results.txt
-
       - name: 带宽测试
         run: |
           # 使用speedtest-cli测试到就近服务器的带宽
