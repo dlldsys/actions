@@ -1,4 +1,4 @@
-<name: AWS宁夏区域网络性能测试
+name: AWS宁夏区域网络性能测试
 on:
   schedule:
     - cron: '0 12 * * *'  # 每天UTC 12点运行(北京时间20点)
