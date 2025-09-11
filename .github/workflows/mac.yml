@@ -1,4 +1,4 @@
-name: Fixed macOS Remote Desktop v3
+name: Fixed macOS Remote Desktop v4
 
 on:
   workflow_dispatch:
@@ -25,20 +25,44 @@ jobs:
         run: |
           sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+          # 确保屏幕共享服务正在运行
+          sudo launchctl start com.apple.screensharing
 
-      - name: Configure security permissions for screen recording (fixed for auth_version)
+      - name: Configure security permissions (adaptive TCC fix)
         run: |
-          # 授予屏幕录制权限 - 包含 auth_version 字段
-          tccutil reset ScreenCapture com.apple.screensharing
-          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, NULL);"
-          
-          # 授予辅助功能权限 - 包含 auth_version 字段
-          tccutil reset Accessibility com.apple.screensharing
-          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, NULL);"
+          # 获取 macOS 版本
+          OS_VERSION=$(sw_vers -productVersion | cut -d '.' -f 1)
+          echo "Detected macOS version: $OS_VERSION"
 
-          # 授予屏幕控制权限
+          # 根据 macOS 版本使用不同的 TCC 配置
+          if [ "$OS_VERSION" -ge 14 ]; then
+            # macOS 14+ (Sonoma及以上) 的 TCC 结构
+            SCREEN_CAPTURE_SQL="INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, 2);"
+            ACCESSIBILITY_SQL="INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, 2);"
+          elif [ "$OS_VERSION" -ge 13 ]; then
+            # macOS 13 (Ventura) 的 TCC 结构
+            SCREEN_CAPTURE_SQL="INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, NULL);"
+            ACCESSIBILITY_SQL="INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, NULL);"
+          else
+            # 旧版本 macOS 的 TCC 结构
+            SCREEN_CAPTURE_SQL="INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0);"
+            ACCESSIBILITY_SQL="INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0);"
+          fi
+
+          # 应用屏幕录制权限配置
+          tccutil reset ScreenCapture com.apple.screensharing
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "$SCREEN_CAPTURE_SQL"
+          
+          # 应用辅助功能权限配置
+          tccutil reset Accessibility com.apple.screensharing
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "$ACCESSIBILITY_SQL"
+
+          # 为远程桌面应用配置权限
           tccutil reset ScreenCapture com.apple.remotedesktop
-          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.remotedesktop', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, NULL);"
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "$SCREEN_CAPTURE_SQL"
+
+          # 重启 TCC 服务
+          sudo pkill -HUP tccd
 
       - name: Create and configure user
         run: |
@@ -55,6 +79,17 @@ jobs:
           echo "$PASSWORD" | sudo dscl . -passwd /Users/$USERNAME
           sudo createhomedir -c -u $USERNAME > /dev/null
           sudo dscl . -append /Groups/admin GroupMembership $USERNAME
+
+      - name: Verify remote access configuration
+        run: |
+          echo "Checking Remote Desktop status:"
+          sudo systemsetup -getremotedesktop
+          
+          echo "Checking Screen Sharing status:"
+          sudo launchctl list | grep screensharing
+          
+          echo "TCC Database entries for screen capture:"
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "SELECT * FROM access WHERE service = 'kTCCServiceScreenCapture';"
 
       - name: Display connection info
         run: |
