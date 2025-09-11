@@ -1,0 +1,61 @@
+name: Configure macOS Remote Desktop
+
+on:
+  workflow_dispatch:  # 允许手动触发工作流
+
+jobs:
+  configure-remote-desktop:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Enable Remote Desktop
+        run: |
+          # 启用远程管理（包含屏幕共享）
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on \
+            -users admin -privs -all -restart -agent -menu
+            
+          # 启用屏幕共享
+          sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
+          sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+          
+          # 配置防火墙允许屏幕共享
+          sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /System/Library/CoreServices/ScreenSharing.app
+          sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblock /System/Library/CoreServices/ScreenSharing.app
+          
+          # 创建测试用户（如果需要）
+          sudo dscl . -create /Users/remotedesktop
+          sudo dscl . -create /Users/remotedesktop UserShell /bin/bash
+          sudo dscl . -create /Users/remotedesktop RealName "Remote Desktop User"
+          sudo dscl . -create /Users/remotedesktop UniqueID 501
+          sudo dscl . -create /Users/remotedesktop PrimaryGroupID 20
+          sudo dscl . -create /Users/remotedesktop NFSHomeDirectory /Users/remotedesktop
+          echo "remotedesktop" | sudo dscl . -passwd /Users/remotedesktop
+          sudo createhomedir -c -u remotedesktop > /dev/null
+          sudo dscl . -append /Groups/admin GroupMembership remotedesktop
+          
+          # 显示当前远程桌面配置状态
+          echo "Remote Desktop configuration status:"
+          sudo systemsetup -getremotedesktop
+          
+      - name: sakura frp
+        run: |
+          mkdir -p -m 755 /usr/local/bin && cd /usr/local/bin
+          curl -Lo frpc https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_darwin_arm64
+          chmod 755 frpc
+          ls -ls frpc
+          frpc -v
+          frpc -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:17573313 &
+
+          
+      - name: Display connection information
+        run: |
+          echo "macOS Runner IP Address:"
+          ipconfig getifaddr en0 || ipconfig getifaddr en1
+          echo "To connect, use the above IP with Screen Sharing app"
+          echo "Username: remotedesktop"
+          echo "Password: remotedesktop"
+          
+      - name: Keep runner alive (for testing)
+        run: |
+          echo "Runner will stay alive for 30 minutes to allow testing"
+          sleep 1800  # 30分钟超时
