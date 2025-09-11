@@ -1,4 +1,4 @@
-name: Fixed macOS Remote Desktop v2
+name: Fixed macOS Remote Desktop v3
 
 on:
   workflow_dispatch:
@@ -26,19 +26,19 @@ jobs:
           sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
 
-      - name: Configure security permissions for screen recording (compatible with newer macOS)
+      - name: Configure security permissions for screen recording (fixed for auth_version)
         run: |
-          # 授予屏幕录制权限 - 适配最新 TCC 数据库结构
+          # 授予屏幕录制权限 - 包含 auth_version 字段
           tccutil reset ScreenCapture com.apple.screensharing
-          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL);"
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, NULL);"
           
-          # 授予辅助功能权限 - 适配最新 TCC 数据库结构
+          # 授予辅助功能权限 - 包含 auth_version 字段
           tccutil reset Accessibility com.apple.screensharing
-          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL);"
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, NULL);"
 
           # 授予屏幕控制权限
           tccutil reset ScreenCapture com.apple.remotedesktop
-          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.remotedesktop', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL);"
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.remotedesktop', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, 1, NULL);"
 
       - name: Create and configure user
         run: |
@@ -67,6 +67,7 @@ jobs:
         run: |
           echo "Runner will stay alive for 30 minutes"
           sleep 1800
+
 
           
       # - name: sakura frp
