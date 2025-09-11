@@ -52,7 +52,7 @@ jobs:
         --name=sakura1 \
         natfrp.com/frpc \
         --disable_log_color \
-         -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:17573313
+         -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:22904011
         
     - name: Keep running for 3 hours
       run: |
