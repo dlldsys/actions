@@ -1,4 +1,4 @@
-name: Fixed macOS Remote Desktop
+name: Fixed macOS Remote Desktop v2
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ jobs:
     env:
       RUNNER_ARCH: arm64
       USERNAME: remotedesktop
-      PASSWORD: YourStrongPassword123!  # 使用更复杂的密码
+      PASSWORD: YourStrongPassword123!
 
     steps:
       - name: Enable Remote Management with full permissions
@@ -26,15 +26,19 @@ jobs:
           sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
 
-      - name: Configure security permissions for screen recording
+      - name: Configure security permissions for screen recording (compatible with newer macOS)
         run: |
-          # 授予屏幕录制权限
+          # 授予屏幕录制权限 - 适配最新 TCC 数据库结构
           tccutil reset ScreenCapture com.apple.screensharing
-          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL);"
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL);"
           
-          # 授予辅助功能权限
+          # 授予辅助功能权限 - 适配最新 TCC 数据库结构
           tccutil reset Accessibility com.apple.screensharing
-          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL);"
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL);"
+
+          # 授予屏幕控制权限
+          tccutil reset ScreenCapture com.apple.remotedesktop
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.remotedesktop', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL);"
 
       - name: Create and configure user
         run: |
