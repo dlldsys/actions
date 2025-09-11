@@ -1,45 +1,75 @@
-name: ARM macOS Test
+name: Fixed macOS Remote Desktop
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  configure-remote:
     runs-on: macos-latest
-    # 指定运行架构为 ARM64
     env:
       RUNNER_ARCH: arm64
-    
-    steps:
-      - name: Check runner architecture
-        run: |
-          echo "Runner OS: $(uname -s)"
-          echo "Runner Architecture: $(uname -m)"
-          # 验证是否为 ARM 架构
-          if [ "$(uname -m)" != "arm64" ]; then
-            echo "Error: Not running on ARM architecture"
-            exit 1
-          fi
-          
-      - name: sakura frp
-        run: |
-          mkdir -p -m 755 /usr/local/bin && cd /usr/local/bin
-          curl -Lo frpc https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_darwin_arm64
-          chmod 755 frpc
-          ls -ls frpc
-          frpc -v
-          frpc -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:17573313 &
+      USERNAME: remotedesktop
+      PASSWORD: YourStrongPassword123!  # 使用更复杂的密码
 
-          
-      - name: Enable Remote Desktop (ARM macOS)
+    steps:
+      - name: Enable Remote Management with full permissions
         run: |
-          # 启用远程管理（ARM 版本命令与 x86 相同）
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on \
-            -users admin -privs -all -restart -agent -menu
-            
-          # 其余配置与之前相同...
+          # 完全重置并重新配置远程管理
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -deactivate -configure -access -off
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -allowAccessFor -allUsers \
+            -privs -all -clientopts -setvnclegacy -vnclegacy yes \
+            -clientopts -setvncpw -vncpw $PASSWORD \
+            -restart -agent -menu
+
+      - name: Enable Screen Sharing
+        run: |
           sudo defaults write /var/db/launchd.db/com.apple.launchd/overrides.plist com.apple.screensharing -dict Disabled -bool false
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+
+      - name: Configure security permissions for screen recording
+        run: |
+          # 授予屏幕录制权限
+          tccutil reset ScreenCapture com.apple.screensharing
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL);"
           
+          # 授予辅助功能权限
+          tccutil reset Accessibility com.apple.screensharing
+          sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "INSERT OR REPLACE INTO access VALUES('kTCCServiceAccessibility', 'com.apple.screensharing', 0, 1, 1, NULL, NULL, NULL, 'UNUSED', NULL, 0, NULL);"
+
+      - name: Create and configure user
+        run: |
+          # 删除现有用户（如果存在）
+          sudo dscl . -delete /Users/$USERNAME 2>/dev/null || true
+          
+          # 创建新用户
+          sudo dscl . -create /Users/$USERNAME
+          sudo dscl . -create /Users/$USERNAME UserShell /bin/bash
+          sudo dscl . -create /Users/$USERNAME RealName "Remote User"
+          sudo dscl . -create /Users/$USERNAME UniqueID 501
+          sudo dscl . -create /Users/$USERNAME PrimaryGroupID 20
+          sudo dscl . -create /Users/$USERNAME NFSHomeDirectory /Users/$USERNAME
+          echo "$PASSWORD" | sudo dscl . -passwd /Users/$USERNAME
+          sudo createhomedir -c -u $USERNAME > /dev/null
+          sudo dscl . -append /Groups/admin GroupMembership $USERNAME
+
+      - name: Display connection info
+        run: |
+          echo "IP Address: $(ipconfig getifaddr en0 || ipconfig getifaddr en1)"
+          echo "Username: $USERNAME"
+          echo "Password: $PASSWORD"
+          echo "VNC Password: $PASSWORD"
+
       - name: Keep runner alive
-        run: sleep 1800
+        run: |
+          echo "Runner will stay alive for 30 minutes"
+          sleep 1800
+
+          
+      # - name: sakura frp
+      #   run: |
+      #     mkdir -p -m 755 /usr/local/bin && cd /usr/local/bin
+      #     curl -Lo frpc https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_darwin_arm64
+      #     chmod 755 frpc
+      #     ls -ls frpc
+      #     frpc -v
+      #     frpc -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:17573313 &
