@@ -7,10 +7,6 @@ on:
         description: 'SakuraFrp 认证令牌'
         required: true
         default: 'wadr25y8xv6h4ek361eoitlfsn7ow2nn'  # 不要在这里填写实际令牌，保持为空让用户输入
-      node_id:
-        description: 'SakuraFrp 节点 ID'
-        required: true
-        default: '17573313'
 
 jobs:
   build:
@@ -60,7 +56,7 @@ jobs:
         run: |
           # 下载 Windows 版 frp 客户端
           Invoke-WebRequest -Uri "https://nya.globalslb.net/natfrp/client/frpc/0.51.0-sakura-12.3/frpc_windows_amd64.exe" -OutFile "frpc.exe"
-          .\frpc.exe -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:22904011
+          .\frpc.exe -f wadr25y8xv6h4ek361eoitlfsn7ow2nn:22919542
           
           # 等待启动并显示日志
           Start-Sleep -Seconds 10
