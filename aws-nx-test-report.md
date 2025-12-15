@@ -1,18 +1,18 @@
 # AWS宁夏区域网络性能测试报告
-## 测试时间: 2025-12-15 17:19:21
+## 测试时间: 2025-12-15 18:20:35
 ## 测试环境: GitHub Actions Ubuntu Latest (Linux)
 
 ### 带宽测试结果
 ```
-Ping: 9.911 ms
-Download: 1387.49 Mbit/s
-Upload: 1361.17 Mbit/s
+Ping: 9.352 ms
+Download: 1936.39 Mbit/s
+Upload: 1446.29 Mbit/s
 ```
 
 ### HTTP连接测试结果
 ```
 HTTP状态码: 307
-响应时间: 3.045462秒
+响应时间: 1.558006秒
 下载速度: 0字节/秒
 ```
 
